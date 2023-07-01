@@ -1,0 +1,9 @@
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-yardstick
+  - r-optparse
+  - r-ggplot2
+  - r-pheatmap
