@@ -55,7 +55,7 @@ we recommend to add `-DBUILD_SHARED_LIBS=OFF` to your `cmake` command.
 Otherwise, make sure that `parasail` is in the `$PATH` and the dynamic library can be found.
 
 
-### Generate FASTQ
+### 1. Generate FASTQ
 
 Process ONT raw FASTQ and reverse sequence and/or transform Ts to Us. Use script on raw *fastq_pass* or *fastq_fail* ONT directory.
 
@@ -63,31 +63,36 @@ Process ONT raw FASTQ and reverse sequence and/or transform Ts to Us. Use script
 -r    Reverse sequence of called bases
 -t    Tranform Us to Ts
 
-### Align reads
+### 2. Align reads
 
 Map processed FASTQ reads to a FASTA reference sequence. 
 To save memory, the script will split FASTQ files into chunks of 2500 reads and merge all chunks at the end.
 
-`Usage: ./parasail_align.sh  -b <OUTPUT-BAM> -f <FASTA> [ -t <THREADS> ] FASTQ`
+```bash
+Usage: ./parasail_align.sh  -b <OUTPUT-BAM> -f <FASTA> [ -t <THREADS> ] FASTQ
 -b <OUTPUT-BAM>   Filename for aligned reads
 -f <FASTA>        Filename of fasta sequence reference
 -t <THREADS>      Number of threads
+```
 
-### Retain highest scoring alignments
+### 3. Retain highest scoring alignments
 
 Given a BAM file, this script will filter mapped reads with a minimal alignment score and 
 retain only the highest scoring alignments for each read - per read there might be more than one high scoring alignment.
 
-`Usage: ./retain_highest_alignments.sh  -b <FILTERED-BAM> [ -s <MIN_SCORE> ] [ -t <THREADS> ] BAM`
+```
+Usage: ./retain_highest_alignments.sh  -b <FILTERED-BAM> [ -s <MIN_SCORE> ] [ -t <THREADS> ] BAM
 -b <OUTPUT-BAM>   Filename for filtered reads
 -s <MIN-SCORE>    Minimal alignment score, default=1
 -t <THREADS>      Number of threads
+```
 
-### Plot: Optimial alignment score
+### 4. Plot: Optimial alignment score
 
 Evaluate and determine optimal alignment score by random alignment of the reverse sequence at a given precision.
 
-`alignment_score_cutoff.R`
+```bash
+Rscript alignment_score_cutoff.R
 Usage: alignment_score_cutoff.R [options] JACUSA2_SCORES
 -f FORWARD, --forward=FORWARD
         Scores of reads mapping to forward
@@ -103,17 +108,20 @@ Usage: alignment_score_cutoff.R [options] JACUSA2_SCORES
 
 -t TITLE, --title=TITLE
         Alignment score plot title
+```
 
-### One step command
+### Run alignment pipeline
 
 This script will execute all the aforementioned steps and produce the final BAM file that can be used in the JACUSA2 analysis part.
 
-`Usage: ./optimize_alignment.sh  -f <FASTA> -o <OUT-DIR> [ -s <MIN-SCORE> ] [ -p <PRECISION ] [ -t <THREADS> ] IN_DIR`
+```bash
+Usage: ./optimize_alignment.sh  -f <FASTA> -o <OUT-DIR> [ -s <MIN-SCORE> ] [ -p <PRECISION ] [ -t <THREADS> ] IN_DIR
 -f <FASTA>        Filename of fasta sequence reference
 -b <OUT-DIR>      Directory for output
 -s <MIN-SCORE>    Minimal alignment score, default=1
 -s <PRECISION>    TODO, default=0.95
 -t <THREADS>      Number of threads
+```
 
 ### Examples
 
@@ -153,11 +161,12 @@ conda activate qutrna-jacusa2
 
 ### Run JACUSA2 analysis and plot
 
-`Usage: ./analysis.sh  -f <FASTA> -o <OUT-DIR> -m <MODS> BAMS1(,) BAMS2(,)`
+```bash
+Usage: ./analysis.sh  -f <FASTA> -o <OUT-DIR> -m <MODS> BAMS1(,) BAMS2(,)
 -b <OUT-DIR>      Directory for output
 -f <FASTA>        Filename of fasta sequence reference
 -m <mods>         CSV file with known modifications (position: 0-index)
-
+```
 The results of JACUSA2 are in `<OUT-DIR>/JACUSA2.out`.
 The process scores can be seen in `<OUT-DIR>/scores.csv`.
 Finally, PDFs`<OUT-DIR>/main.pdf` and `<OUT-DIR>/small.pdf` provide a consise visualization of scores and known modifications.
