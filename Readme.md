@@ -92,7 +92,6 @@ Usage: ./retain_highest_alignments.sh  -b <FILTERED-BAM> [ -s <MIN_SCORE> ] [ -t
 Evaluate and determine optimal alignment score by random alignment of the reverse sequence at a given precision.
 
 ```bash
-Rscript alignment_score_cutoff.R
 Usage: alignment_score_cutoff.R [options] JACUSA2_SCORES
 -f FORWARD, --forward=FORWARD
         Scores of reads mapping to forward
@@ -125,7 +124,7 @@ Usage: ./optimize_alignment.sh  -f <FASTA> -o <OUT-DIR> [ -s <MIN-SCORE> ] [ -p 
 
 ### Examples
 
-We provide a data set to explore the pipeline. Neccessary data for **S.pombe** was deposited in the repository under `data`:
+We provide a data set to explore the pipeline. Necessary data for **S.pombe** was deposited in the repository under `data`:
 
 * S.pombe tRNAAsp IVT and
 * S.pombe tRNAAsp IVT Q.
@@ -139,17 +138,17 @@ The output will be in `output/alignment`.
 
 ## JACUSA2 analysis
 
-JACUSA2 compares paired samples and detects positions, where 2 conditions differ in the base composition, or the number of INDELs.
-JACUSA2 employs DirichletMultinomial and BetaBinomial distrtiubutions to model base compositions and INDELs, respectively. 
+[JACUSA2](https://github.com/dieterich-lab/JACUSA2) compares paired samples and detects positions, where 2 conditions differ in the base composition, or the number of INDELs.
+[JACUSA2](https://github.com/dieterich-lab/JACUSA2) employs DirichletMultinomial and BetaBinomial distributions to model base compositions and INDELs, respectively. 
 
-We calculate mismatch, insertion, and deletion scores with JACUSA2 and combine them to create Mis+Del+Ins score. 
+We calculate mismatch, insertion, and deletion scores with [JACUSA2](https://github.com/dieterich-lab/JACUSA2) and combine them to create Mis+Del+Ins score. 
 
-Finally,we provide diagnostic plots where the score is plotted as a heatmap and known modifications displayed to verify the perdictions. 
+Finally,we provide diagnostic plots where the score is plotted as a heatmap and known modifications displayed to verify the predictions. 
 
 ### Installation & Requirements
 
 * Java >= 11
-* [JACUSA2 2.0.4](https://github.com/dieterich-lab/JACUSA2 
+* [JACUSA2 2.0.4](https://github.com/dieterich-lab/JACUSA2)
 * [JACUSA2helper 1.9.9600](https://github.com/dieterich-lab/JACUSA2helper)
 
 Create a conda environment with all requirements with:
