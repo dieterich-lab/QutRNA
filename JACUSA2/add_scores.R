@@ -1,18 +1,7 @@
 #!/usr/bin/env Rscript
 
-# TODO remove
-options(error = traceback)
-options(show.error.locations = TRUE)
+# Process JACUSA2 scores and add additional data.
 
-#readr
-#library(optparse)
-#library(JACUSA2helper)
-#library(GenomicRanges)
-#library(IRanges)
-#library(plyranges)
-#library(dplyr)
-#library(BSgenome)
-#library(data.table)
 library(magrittr)
 
 WIDTH <- 5
@@ -31,8 +20,15 @@ option_list <- list(
 
 opts <- optparse::parse_args(
   optparse::OptionParser(option_list = option_list),
+  #args = c("--fasta=../data/S.pombe.fasta",
+  #         "--mods=../data/S.pombe_mods.csv",
+  #         "S.pombe_tRNAAsp_IVT-Q/JACUSA2.out"),
   positional_arguments = TRUE
 )
+
+stopifnot(!is.null(opts$options$fasta))
+stopifnot(!is.null(opts$options$output))
+stopifnot(length(opts$options$args) == 1)
 
 fasta <- Biostrings::readDNAStringSet(opts$options$fasta)
 mods <- NULL
@@ -49,15 +45,12 @@ result <- JACUSA2helper::read_result(opts$args, unpack = TRUE) %>%
   plyranges::select(bases, score, ins, insertion_score, del, deletion_score, ref) %>%
   plyranges::mutate(
     Ref = seqnames,
-    Pos3 = start,
-    Ref_Pos = paste0(seqnames, "_", Pos3))
+    Pos3 = start)
 
 if (is.null(mods)) {
-  result <- result %>%
-    plyranges::mutate(Mod)
+  result <- result %>% plyranges::mutate(Mod = NA)
 } else {
-  result <- result %>%
-    plyranges::join_overlap_left(mods)
+  suppressWarnings({result <- result %>% plyranges::join_overlap_left(mods)})
 }
 
 GenomeInfoDb::seqlevels(result) <- GenomeInfoDb::seqlevels(fasta)
@@ -76,19 +69,16 @@ result <- result %>%
   )
 
 # add context scores
-result <- result %>%
-  dplyr::mutate(MisDelIns = Mis + Del + Ins) %>%
-  IRanges::resize(width = WIDTH, fix = "center") %>%
-  IRanges::shift(1) %>%
-  plyranges::filter(start > 0 & end < GenomeInfoDb::seqlengths(.)[as.character(GenomeInfoDb::seqnames(.))]) %>%
-  plyranges::mutate(
-    Kmer = BSgenome::getSeq(fasta, .) %>% as.character(),
-  ) %>%
-  IRanges::shift(-1) %>%
-  IRanges::resize(width = IRanges::width(.) + 1) %>%
-  plyranges::mutate(
-    Context = paste0(start , "_", end)
-  )
+suppressWarnings({
+  result <- result %>%
+    dplyr::mutate(MisDelIns = Mis + Del + Ins) %>%
+    IRanges::resize(width = WIDTH, fix = "center") %>%
+    IRanges::shift(1) %>%
+    plyranges::filter(start > 0 & end < GenomeInfoDb::seqlengths(.)[as.character(GenomeInfoDb::seqnames(.))]) %>%
+    plyranges::mutate(Kmer = BSgenome::getSeq(fasta, .) %>% as.character()) %>%
+    IRanges::shift(-1) %>%
+    IRanges::resize(width = IRanges::width(.) + 1)
+})
 
 non_ref <- function(bases, ref) {
   stopifnot(length(ref) ==  nrow(bases))
@@ -155,7 +145,7 @@ del <- indel_to_cols(result$del, "deletion")
 df <- dplyr::bind_cols(
   GenomicRanges::mcols(result) %>%
     as.data.frame() %>%
-    dplyr::select(Ref, Context, Ref_Pos, Pos3,
+    dplyr::select(Ref, Pos3,
                   Mod,
                   Kmer,
                   Mis, MisDelIns),
@@ -164,13 +154,12 @@ df <- dplyr::bind_cols(
   del
 )
 
-
 # final polish
 GenomicRanges::mcols(result) <- df
 df <- GenomicRanges::mcols(result) %>%
   as.data.frame() %>%
   dplyr::select(
-    Ref, Context, Ref_Pos, Pos3,
+    Ref, Pos3,
     Mis, MisDelIns,
     Mod,
     Kmer,
@@ -183,7 +172,7 @@ df <- GenomicRanges::mcols(result) %>%
   dplyr::rename(`Mis+Del+Ins` = MisDelIns)
 
 # good to go to files
-common_cols <- c("Ref", "Context", "Ref_Pos", "Pos3")
+common_cols <- c("Ref", "Pos3")
 common_cols <- c(common_cols, "Mis", "Mis+Del+Ins",
                  "Mod",
                  "Kmer")

@@ -1,10 +1,13 @@
 #!/bin/bash
+
+# Retain highest scoring alignments per read
+
 set -e
 
-IN_BAM=""
-OUT_BAM=""
-MIN_SCORE=10
-THREADS=1
+IN_BAM=""    # BAM file to work on
+OUT_BAM=""   # output BAM file
+MIN_SCORE=10 # minimal alignment score to consider
+THREADS=1    # number of threads to use for computation
 
 usage() {
   echo "Usage: $0  -b <FILTERED-BAM> [ -s <MIN_SCORE> ] [ -t <THREADS> ] BAM" 1>&2

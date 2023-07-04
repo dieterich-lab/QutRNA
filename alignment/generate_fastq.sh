@@ -5,8 +5,8 @@
 set -e
 
 DNAME=""  # FASTQ directory
-U2T=0     # transform Us to Ts
-REVERSE=0 # Reverse FASTQ bases
+U2T=0     # (-t) transform Us to Ts
+REVERSE=0 # (-r) Reverse FASTQ bases
 
 usage() {
   echo "Usage: $0 [ -r ] [ -t ] FASTQ-DIR-NAME" 1>&2
@@ -46,7 +46,6 @@ if [ ! -d "$DNAME" ]
 then
   exit_with_error "Directory '$DNAME' does not exist!"
 fi
-
 if [ "$REVERSE" -eq 1 ]
 then
   cat $DNAME/*.gz | \

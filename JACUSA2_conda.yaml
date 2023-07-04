@@ -7,4 +7,7 @@ dependencies:
   - r-jacusa2helper
   - r-optparse
   - r-ggplot2
-  - openjdk
+  - r-curl
+  - r-pheatmap
+  - bioconductor-bsgenome
+  - jacusa2

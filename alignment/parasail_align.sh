@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Align reads with parasail
+
 set -e
 
 FASTQ=""  # FASTQ reads
@@ -66,7 +69,10 @@ fi
 
 TMP_OUT="$(mktemp $BAM.XXXXXXXXXX)" || { exit_with_error "Failed to create temp file!" ; }
 
-parasail_aligner -a sw_trace_striped_sse41_128_16 \
+gunzip -c $FASTQ | split -l 10000 --filter 'gzip -c > $FILE.fastq.gz' /dev/stdin $TMP_OUT.part_
+for PART in $TMP_OUT.part_*.fastq.gz
+do
+  parasail_aligner -a sw_trace_striped_sse41_128_16 \
                    -M 1 \
                    -X 1 \
                    -e 1 \
@@ -77,12 +83,17 @@ parasail_aligner -a sw_trace_striped_sse41_128_16 \
                    -t $THREADS \
                    -O SAMH \
                    -f ${FASTA} \
-                   -g $TMP_OUT \
-                   -q $FASTQ
+                   -g ${PART%.fastq.gz}.sam \
+                   -q $PART
+  rm $PART
+done
 
-cat $TMP_OUT | \
+cat $TMP_OUT.part_*.sam | \
   awk -v OFS="\t" \
-    ' $0 ~ /AS:i:([0-9]+)/ {
+    ' BEGIN { HEADER=0 }
+      $0 ~ /^@/ { if (HEADER==0) { print } ; next }
+      $0 !~ /^@/ { HEADER=1 }
+      $0 ~ /AS:i:([0-9]+)/ {
                              AS=int(gensub(/.+AS:i:([0-9]+).+/, "\\1", "g")) ;
                              (AS <= 255) ? $5=AS : $5=255 ;
                              print ;
@@ -92,4 +103,5 @@ cat $TMP_OUT | \
   samtools calmd /dev/stdin $FASTA | \
   samtools sort -@ $THREADS -m 2G -o $BAM /dev/stdin && samtools index $BAM
 
+rm $TMP_OUT.part_*.sam
 rm $TMP_OUT
