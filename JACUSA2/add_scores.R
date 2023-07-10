@@ -28,7 +28,7 @@ opts <- optparse::parse_args(
 
 stopifnot(!is.null(opts$options$fasta))
 stopifnot(!is.null(opts$options$output))
-stopifnot(length(opts$options$args) == 1)
+stopifnot(length(opts$args) == 1)
 
 fasta <- Biostrings::readDNAStringSet(opts$options$fasta)
 mods <- NULL

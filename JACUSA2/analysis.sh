@@ -109,4 +109,4 @@ Rscript $DIR/add_scores.R -f $FASTA -m $MODS -o $JACUSA2_SCORE_OUT $JACUSA2_OUT
 ################################################################################
 PLOT_OUT="$OUT_DIR/plots"
 echo "Create plots" 1>&2
-Rscript $DIR/polt_score.R --output $PLOT_OUT $JACUSA2_SCORE_OUT
+Rscript $DIR/plot_score.R --output $PLOT_OUT $JACUSA2_SCORE_OUT

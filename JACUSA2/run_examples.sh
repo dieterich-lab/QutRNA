@@ -6,5 +6,5 @@
 ./analysis.sh -f ../data/S.pombe.fasta \
               -o S.pombe_tRNAAsp_IVT-Q \
               -m ../data/S.pombe_mods.csv \
-              ../alignment/S.pombe_tRNAAsp_IVT/final_merged.bam \
-              ../alignment/S.pombe_tRNAAsp_IVT_Q/final_merged.bam
+              ../output/S.pombe_tRNAAsp_IVT/final_merged.bam \
+              ../output/S.pombe_tRNAAsp_IVT_Q/final_merged.bam
