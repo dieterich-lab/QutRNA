@@ -7,4 +7,4 @@ dependencies:
   - r-optparse
   - r-ggplot2
   - r-pheatmap
-  - samtools==1.16
+  - samtools==1.16.1
