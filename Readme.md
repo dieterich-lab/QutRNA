@@ -119,8 +119,8 @@ This script will execute all the aforementioned steps and produce the final BAM 
 Usage: ./optimize_alignment.sh  -f <FASTA> -o <OUT-DIR> [ -s <MIN-SCORE> ] [ -p <PRECISION ] [ -t <THREADS> ] IN_DIR
 -f <FASTA>        Filename of fasta sequence reference
 -b <OUT-DIR>      Directory for output
--s <MIN-SCORE>    Minimal alignment score, default=1
--s <PRECISION>    TODO, default=0.95
+-s <MIN-SCORE>    Minimal alignment score, default=10
+-s <PRECISION>    Precision cutoff, default=0.95
 -t <THREADS>      Number of threads
 ```
 
