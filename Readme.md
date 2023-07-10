@@ -59,9 +59,11 @@ Otherwise, make sure that `parasail` is in the `$PATH` and the dynamic library c
 
 Process ONT raw FASTQ and reverse sequence and/or transform Ts to Us. Use script on raw *fastq_pass* or *fastq_fail* ONT directory.
 
-`Usage: ./generate_fastq.sh [ -r ] [ -t ] FASTQ-DIR-NAME`
+```bash
+Usage: ./generate_fastq.sh [ -r ] [ -t ] FASTQ-DIR-NAME
 -r    Reverse sequence of called bases
 -t    Tranform Us to Ts
+```
 
 ### 2. Align reads
 
@@ -186,7 +188,7 @@ The results are in `output/JACUSA/...`.
 
 # License
 
-See LICENSE.md for details
+See LICENSE for details
 
 # References
 
