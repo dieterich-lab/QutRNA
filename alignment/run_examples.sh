@@ -2,8 +2,6 @@
 set -e
 
 # Run example alignment for S.Pombe
-mkdir -p ../output/S.pombe_tRNAASP_IVT
-mkdir -p ../output/S.pombe_tRNAASP_IVT_Q
 
 # optimize alignment for S.pombe tRNAAsp IVT
 ./optimize_alignment.sh \
