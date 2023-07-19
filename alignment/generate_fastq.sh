@@ -57,13 +57,13 @@ then
       read LINE && echo $LINE && \
       read LINE && echo $LINE
     done | \
-    awk -v U2T="$U2T" \
+    gawk -v U2T="$U2T" \
       ' NR%4==2 { if (U2T==1) { gsub("U", "T", $0) } ; print ; next } ;
                 { print } '
 else
   cat $DNAME/*.gz | \
     gunzip -c | \
-    awk -v U2T="$U2T" \
+    gawk -v U2T="$U2T" \
     ' NR%4==1 { $0=gensub(/^([^ ]+).+/, "\\1", "g") ; print ; next } ;
       NR%4==2 { if (U2T==1) { gsub("U", "T", $0) } ; print ; next } ;
               { print } '

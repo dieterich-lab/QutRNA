@@ -8,3 +8,5 @@ dependencies:
   - r-ggplot2
   - r-pheatmap
   - samtools==1.16.1
+  - gawk
+  - coreutils

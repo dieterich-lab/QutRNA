@@ -32,6 +32,9 @@ We employ the alignment strategy separately on reads that are designated by Gupp
 
 ### Installation & Requirements:
 
+Currently, the pipeline requires a X86\_64.
+We are working on supporting OSX.
+
 * [R 4.3](https://www.r-project.org/)
 * pheatmap
 * yardstick

@@ -68,7 +68,7 @@ fi
   samtools view -H $IN_BAM && \
   samtools view $IN_BAM | \
     sort -k1,1 -k5,5r | \
-    awk -v MIN_SCORE="$MIN_SCORE" \
+    gawk -v MIN_SCORE="$MIN_SCORE" \
       ' BEGIN { LAST_READ="" ; SCORE="" } ;
         $5>=MIN_SCORE {
                         if (LAST_READ!=$1) {

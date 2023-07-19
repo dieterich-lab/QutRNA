@@ -89,7 +89,7 @@ do
 done
 
 cat $TMP_OUT.part_*.sam | \
-  awk -v OFS="\t" \
+  gawk -v OFS="\t" \
     ' BEGIN { HEADER=0 }
       $0 ~ /^@/ { if (HEADER==0) { print } ; next }
       $0 !~ /^@/ { HEADER=1 }
