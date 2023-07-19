@@ -152,8 +152,7 @@ Finally,we provide diagnostic plots where the score is plotted as a heatmap and 
 
 Create a conda environment with all requirements with:
 ```bash
-conda env create -n qutrna-jacusa2 -f JACUSA2_c:w
-onda.yaml
+conda env create -n qutrna-jacusa2 -f JACUSA2_conda.yaml
 conda activate qutrna-jacusa2
 ```
 
@@ -161,7 +160,7 @@ conda activate qutrna-jacusa2
 
 ```bash
 Usage: ./analysis.sh  -f <FASTA> -o <OUT-DIR> -m <MODS> BAMS1(,) BAMS2(,)
--b <OUT-DIR>      Directory for output
+-o <OUT-DIR>      Directory for output
 -f <FASTA>        Filename of fasta sequence reference
 -m <mods>         CSV file with known modifications (position: 0-index)
 ```
