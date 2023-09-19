@@ -44,7 +44,7 @@ We are working on supporting OSX.
 
 We provide a YAML file to create a [conda](https://docs.conda.io/en/latest/) environment with all necessary software except [parasail](https://github.com/jeffdaily/parasail/).
 
-Create a conda environment with :
+Create a conda environment with:
 ```bash
 conda env create -n qutrna-align -f alignment_conda.yaml
 conda activate qutrna-align
