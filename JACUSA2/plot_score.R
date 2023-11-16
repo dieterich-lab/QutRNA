@@ -17,6 +17,9 @@ option_list <- list(
                 type = "character",
                 default = 24,
                 help = "Ignore positions left"),
+  make_option(c("-c", "--coordinates"),
+                type = "character",
+                help = "Use column as coordinates, default: Pos3"),
   make_option(c("-t", "--length"),
                 type = "character",
                 default = 77,
@@ -32,19 +35,23 @@ stopifnot(length(opts$args) == 1)
 
 dir.create(opts$options$output, showWarnings = FALSE)
 df <- read.csv(opts$args)
+df <- df[df$Pos3 > opts$options$left, ]
+if (opts$options$len > 0) {
+  df <- df[df$Pos3 < as.numeric(opts$options$left) + as.numeric(opts$options$len), ]
+}
+pos_col <- opts$options$coordinates
+if (pos_col == "u_pos") {
+  df <- df[df[[opts$options$coordinates]] != "-", ]
+}
+
 df$score <- df[, opts$options$score]
 df$score[df$score < 0] <- 0
 
-score <- tapply(df$score, list(df$Ref, paste(df$Pos, df$Mod, sep = ":")), max)
+score <- tapply(df$score, list(df$Ref, paste(df[[pos_col]], df$Mod, sep = ":")), max)
 score[is.na(score)] <- 0
+idx <- order(as.numeric(sapply(sapply(colnames(score), strsplit, ":"), function(x){ x[1] } )))
 
-idxs <- order(as.numeric(sapply(sapply(colnames(score), strsplit, ":"), function(x){ x[1] } )))
-Validxs <- sort(as.numeric(sapply(sapply(colnames(score), strsplit, ":"), function(x){ x[1] } )))
-left <- as.numeric(opts$options$left)
-len <- as.numeric(opts$options$length)
-idxs <- idxs[which(Validxs > left & Validxs < left + len)]
-
-pheatmap(score[, idxs],
+pheatmap(score[, idx],
          scale = "none",
          cluster_rows = FALSE,
          cluster_cols = FALSE,
@@ -54,18 +61,18 @@ pheatmap(score[, idxs],
          height = 14,
          file = file.path(opts$options$output, "main.pdf"))
 
-score <- tapply(df$score, list(df$Ref, df$Pos3), max)
-score[is.na(score)]<-0
-mod <- sapply(tapply(df$Mod, df$Pos3, unique), paste, collapse = "_")
-annotation_col = data.frame(Modification = ifelse(as.character(mod) == "", "Unmod", "Mod"))
-rownames(annotation_col) <- names(mod)
-pheatmap(score[, order(as.numeric(colnames(score)))],
-         scale = "none",
-         annotation_col = annotation_col,
-         cluster_rows = FALSE,
-         cluster_cols = FALSE,
-         display_numbers = TRUE,
-         number_format = "%.0f",
-         width = 22,
-         height = 14,
-         file = file.path(opts$options$output, "small.pdf"))
+#score <- tapply(df$score, list(df$Ref, df[[pos_col]]), max)
+#score[is.na(score)]<-0
+#mod <- sapply(tapply(df$Mod, df[[pos_col]], unique), paste, collapse = "_")
+#annotation_col = data.frame(Modification = ifelse(as.character(mod) == "", "Unmod", "Mod"))
+#rownames(annotation_col) <- names(mod)
+#pheatmap(score[, order(as.numeric(colnames(score)))],
+#         scale = "none",
+#         annotation_col = annotation_col,
+#         cluster_rows = FALSE,
+#         cluster_cols = FALSE,
+#         display_numbers = TRUE,
+#         number_format = "%.0f",
+#         width = 22,
+#         height = 14,
+#         file = file.path(opts$options$output, "small.pdf"))
