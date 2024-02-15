@@ -1,0 +1,25 @@
+channels:
+  - piechottam
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - bioconductor-bsgenome
+  - click
+  - coreutils
+  - gawk
+  - jacusa2
+  - pandas
+  - pyyaml
+  - r-cowplot
+  - r-curl
+  - r-ggplot2
+  - r-ggplot2
+  - r-ggpubr
+  - r-jacusa2helper
+  - r-optparse
+  - r-optparse
+  - r-pheatmap
+  - r-yardstick
+  - samtools==1.16.1
+  - snakemake<8
