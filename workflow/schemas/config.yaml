@@ -1,0 +1,72 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://github.com/dieterich-lab/QutRNA/workflow/schemas/config.yaml
+title: QutRNA
+description: Config for tRNA mapping and modification discovery
+type: object
+properties:
+  pepfile:
+    type: string
+    description: Sample description
+  parasail:
+    type: object
+    properties:
+      threads:
+        type: integer
+        description: Number of threads to reserve for parasail
+    default:
+      threads: 6
+  jacusa2:
+    type: object
+    properties:
+      jar:
+        type: string
+      opts:
+        type: string
+      threads:
+        type: integer
+    default:
+      jar: jacusa2
+      opts: -m 1 -q 1 -c 4 -p 1 -D -i -a D,Y -P1 FR-SECONDSTRAND -P2 FR-SECONDSTRAND
+      threads: 5
+  precision:
+    type: double
+    description: Calibrate alignment score offset with precision
+  min_aln_score:
+    type: integer
+    description: Minimum alignment score to considert for calibration
+  trnascan_se:
+    type: object
+    desctription: Options for tRNAscan-SE
+    properties:
+      opts:
+        type: string
+      threads:
+        type: integer
+    default:
+      opts: -I --detail
+      threads: 1
+  include:
+    type: object
+    properties:
+      ref_fasta:
+        type: string
+        enum: ["link", "copy"]
+      mods:
+        type: string
+        enum: ["link", "copy"]
+      fastq:
+        type: string
+        enum: ["link", "copy"]
+      bam:
+        type: string
+        enum: ["link", "copy"]
+    default:
+      ref_fasta: link
+      mods: copy
+      fastq: link
+      bam: link
+default:
+  precision: 0.95
+  min_aln_score: 10
+required:
+  - pepfile

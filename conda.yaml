@@ -4,7 +4,13 @@ channels:
   - bioconda
   - defaults
 dependencies:
+  - bioconductor-biostrings
   - bioconductor-bsgenome
+  - bioconductor-genomeinfodb
+  - bioconductor-genomicranges
+  - bioconductor-iranges
+  - bioconductor-plyranges
+  - biopython
   - click
   - coreutils
   - gawk
@@ -13,13 +19,16 @@ dependencies:
   - pyyaml
   - r-cowplot
   - r-curl
-  - r-ggplot2
+  - r-data.table
+  - r-dplyr
   - r-ggplot2
   - r-ggpubr
   - r-jacusa2helper
-  - r-optparse
+  - r-magrittr
   - r-optparse
   - r-pheatmap
+  - r-stringr
+  - r-tidyr
   - r-yardstick
   - samtools==1.16.1
   - snakemake<8

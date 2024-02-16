@@ -1,0 +1,70 @@
+description: QutRNA
+imports:
+  - http://schema.databio.org/pep/2.0.0.yaml
+properties:
+  samples:
+    type: array
+    items:
+      type: object
+      properties:
+        condition:
+          type: string
+        subsample_name:
+          type: string
+        base_calling:
+          type: string
+          enum: ["pass", "fail", "merged"]
+        fastq:
+          type: string
+        bam:
+          type: string
+      required:
+        - condition
+        - sample_name
+        - subsample_name
+        - base_calling
+      files:
+        - fastq
+        - bam
+  config:
+    type: object
+    properties:
+      qutrna:
+        type: object
+        properties:
+          output_dir:
+            type: string
+            description: Output directory
+          ref_fasta:
+            type: string
+          mods:
+            type: string
+            description: Known modifications
+          linker5:
+            type: integer
+            description: Length of 5' linker
+          linker3:
+            type: integer
+            description: Length of 3' linker
+          contrasts:
+            type: array
+            properties:
+              cond1:
+                type: string
+              cond2:
+                type: string
+            required:
+              - cond1
+              - cond2
+        files:
+          - ref_fasta
+          - mods
+        required:
+          - output_dir
+          - ref_fasta
+          - linker5
+          - linker3
+    required:
+      - degradome
+required:
+  - samples

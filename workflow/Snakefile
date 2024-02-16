@@ -1,0 +1,78 @@
+import pandas as pd
+
+from snakemake.utils import validate
+
+
+validate(config, "schemas/config.yaml")
+pepfile: config["pepfile"]
+pepschema: "schemas/pep.yaml"
+workdir: pep.config["qutrna"]["output_dir"]
+
+
+READS = ""
+if "bam" pep.sample_table.columns and "fastq" pep.sample_table.columns:
+  raise Exception("Only column bam or fastq can be set in sample table.")
+if "bam" pep.sample_table.columns:
+  READS = "bam"
+if "fastq" pep.sample_table.columns:
+  READS = "fastq"
+
+
+def get_coords(fname):
+  df = pd.read_csv(MODS, header=True)
+  coords = []
+  for col in ["pos", "u_pos"]:
+    if col in df.columns:
+      coords.append(col)
+
+  if len(coords) == 0:
+    raise Exception("mods file is missing column pos or u_pos ")
+
+  return coords
+
+
+COORDS = []
+if MODS:
+  COORDS = get_coords(MODS)
+
+
+import: rules/common.smk
+import: rules/samtools.smk
+import: rules/parasail.smk
+import: rules/jacusa2.smk
+import: rules/plot.smk
+
+
+def target_all():
+  targets = []
+  for cond1, cond2 in pep.config["qutrna"]["contrasts"]:
+    targets.append("results/plots/cond1~{cond1}/cond2~{cond2}/")
+
+  return targets
+
+
+rule all:
+  input: target_all()
+
+
+def target_mapping():
+  if READS != "fastq":
+    raise Exception("Cannot perform mapping - no fastq or wrong sample table.")
+
+  conds = set()
+  for cond1, cond2 in pep.config["qutrna"]["contrasts"]:
+    conds.add(cond1)
+    conds.add(cond2)
+  conds = list(conds)
+
+  tbl = pep.sample_table
+  tbl = tbl.set_index(condition)
+  tbl = tbl.loc[conds]
+
+  targets = expand("results/plots/sample~{sample}.pdf", sample=tbl["sample_name"])
+
+  return targets
+
+
+rule mapping:
+  input: target_mapping()
