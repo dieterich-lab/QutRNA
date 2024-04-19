@@ -1,4 +1,12 @@
 #!/bin/bash
+#SBATCH -n 12
+#SBATCH -N 1
+#SBATCH -c 1
+#SBATCH --mem=150G
+
+eval "$(conda shell.bash hook)"
+conda activate qutrna-align
+module load parasail
 
 # Run entire mapping pipeline.
 
@@ -11,7 +19,7 @@ while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
   [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
 DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
-
+DIR="/beegfs/homes/mpiechotta/git/QutRNA/alignment"
 
 IN_DIR="" # Directory that contains fastq pass and fail reads
 FASTA="" # FASTA sequence reference
@@ -79,10 +87,10 @@ do
   # Merge nanopore FASTQ files, transform Us to Ts, and
   #  reverse nucleotide sequence to obtain random score distribution
   ##############################################################################
-  echo "Merge fwd $RTYPE FASTQ" 1>&2
-  $DIR/generate_fastq.sh -t $IN_DIR/fastq_$RTYPE | gzip -c > $OUT_DIR/fwd_$RTYPE.fastq.gz
-  echo "Merge rev $RTYPE FASTQ" 1>&2
-  $DIR/generate_fastq.sh -r -t $IN_DIR/fastq_$RTYPE | gzip -c > $OUT_DIR/rev_$RTYPE.fastq.gz
+  #echo "Merge fwd $RTYPE FASTQ" 1>&2
+  #$DIR/generate_fastq.sh -t $IN_DIR/fastq_$RTYPE | gzip -c > $OUT_DIR/fwd_$RTYPE.fastq.gz
+  #echo "Merge rev $RTYPE FASTQ" 1>&2
+  #$DIR/generate_fastq.sh -r -t $IN_DIR/fastq_$RTYPE | gzip -c > $OUT_DIR/rev_$RTYPE.fastq.gz
 
   ##############################################################################
   # Use parasail to map and align reads

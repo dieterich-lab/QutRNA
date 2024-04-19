@@ -9,9 +9,6 @@ option_list <- list(
   optparse::make_option(c("-f", "--fasta"),
                         type = "character",
                         help = "FASTA sequence"),
-  optparse::make_option(c("-m", "--mods"),
-                        type = "character",
-                        help = "Known modifications"),
   optparse::make_option(c("-o", "--output"),
                         type = "character",
                         help = "Output")
@@ -20,7 +17,6 @@ option_list <- list(
 opts <- optparse::parse_args(
   optparse::OptionParser(option_list = option_list),
   #args = c("--fasta=../data/S.pombe.fasta",
-  #         "--mods=../data/S.pombe_mods.csv",
   #         "S.pombe_tRNAAsp_IVT-Q/JACUSA2.out"),
   positional_arguments = TRUE
 )
@@ -30,14 +26,6 @@ stopifnot(!is.null(opts$options$output))
 stopifnot(length(opts$args) == 1)
 
 fasta <- Biostrings::readDNAStringSet(opts$options$fasta)
-mods <- NULL
-if (!is.null(opts$options$mods)) {
-  mods <- data.table::fread(opts$options$mods, header = TRUE) %>%
-  as.data.frame() %>%
-  dplyr::rename(seqnames = seq_id, start = pos) %>%
-  dplyr::mutate(end = start) %>%
-  GenomicRanges::GRanges()
-}
 
 result <- JACUSA2helper::read_result(opts$args, unpack = TRUE) %>%
   IRanges::shift(-1) %>%
@@ -45,12 +33,6 @@ result <- JACUSA2helper::read_result(opts$args, unpack = TRUE) %>%
   plyranges::mutate(
     Ref = seqnames,
     Pos3 = start)
-
-if (is.null(mods)) {
-  result <- result %>% plyranges::mutate(mod = NA)
-} else {
-  suppressWarnings({result <- result %>% plyranges::join_overlap_left(mods)})
-}
 
 GenomeInfoDb::seqlevels(result) <- GenomeInfoDb::seqlevels(fasta)
 GenomicRanges::seqinfo(result) <- GenomicRanges::seqinfo(fasta)
@@ -64,7 +46,6 @@ result <- result %>%
     Mis = replace(Mis, is.na(Mis), 0),
     Del = replace(Del, is.na(Del), 0),
     Ins = replace(Ins, is.na(Ins), 0),
-    mod = replace(mod, is.na(mod), ""),
   )
 
 # add context scores
@@ -145,7 +126,6 @@ df <- dplyr::bind_cols(
   GenomicRanges::mcols(result) %>%
     as.data.frame() %>%
     dplyr::select(Ref, Pos3,
-                  mod,
                   Kmer,
                   Mis, MisDelIns),
   bases,
@@ -160,7 +140,6 @@ df <- GenomicRanges::mcols(result) %>%
   dplyr::select(
     Ref, Pos3,
     Mis, MisDelIns,
-    mod,
     Kmer,
     dplyr::starts_with("coverage_"),
     dplyr::starts_with("mismatch_rate_"),
@@ -173,7 +152,6 @@ df <- GenomicRanges::mcols(result) %>%
 # good to go to files
 common_cols <- c("Ref", "Pos3")
 common_cols <- c(common_cols, "Mis", "Mis+Del+Ins",
-                 "mod",
                  "Kmer")
 
 df %>% dplyr::select(dplyr::all_of(common_cols),
@@ -182,4 +160,4 @@ df %>% dplyr::select(dplyr::all_of(common_cols),
                      dplyr::starts_with("bases_"),
                      dplyr::starts_with("insertion_"),
                      dplyr::starts_with("deletion_")) %>%
-  write.table(opts$options$output, quote=FALSE, sep = ",", col.names = TRUE, row.names = FALSE)
+  write.table(opts$options$output, quote=FALSE, sep = "\t", col.names = TRUE, row.names = FALSE)

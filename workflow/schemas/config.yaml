@@ -10,63 +10,120 @@ properties:
   parasail:
     type: object
     properties:
+      opts:
+        type: string
+        description: Options for parasail
+        default: -a sw_trace_striped_sse41_128_16 -M 1 -X 1 -e 1 -o 1 -c 20 -x -d
       threads:
         type: integer
         description: Number of threads to reserve for parasail
-    default:
-      threads: 6
+        default: 6
+      lines:
+        type: integer
+        description: Number of lines to split FASTQ files.
+        default: 10000
+    default: {}
   jacusa2:
     type: object
     properties:
       jar:
         type: string
+        default: jacusa2
       opts:
         type: string
+        default: -m 1 -q 1 -p 1 -D -i -a D,Y -P1 FR-SECONDSTRAND -P2 FR-SECONDSTRAND
+      min_cov:
+        type: integer
+        default: 10
       threads:
         type: integer
-    default:
-      jar: jacusa2
-      opts: -m 1 -q 1 -c 4 -p 1 -D -i -a D,Y -P1 FR-SECONDSTRAND -P2 FR-SECONDSTRAND
-      threads: 5
-  precision:
-    type: double
-    description: Calibrate alignment score offset with precision
-  min_aln_score:
-    type: integer
-    description: Minimum alignment score to considert for calibration
-  trnascan_se:
+        default: 5
+    default: {}
+  cmalign:
     type: object
-    desctription: Options for tRNAscan-SE
     properties:
       opts:
         type: string
+        default: --notrunc --nonbanded -g
       threads:
         type: integer
-    default:
-      opts: -I --detail
-      threads: 1
+        default: 2
+    default: {}
+  params:
+    type: object
+    properties:
+      precision:
+        type: number
+        description: Calibrate alignment score offset with precision
+      min_aln_score:
+        type: integer
+        description: Minimum alignment score to considert for calibration
+    required:
+      - precision
+      - min_aln_score
+  plots:
+    type: array
+    items:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        trnas:
+          type: string
+          enum: ["isoacceptor", "isodecoder"]
+        positions:
+          type: array
+          items:
+            type: string
+        opts:
+          type: string
+      required:
+        - id
+        - trnas
+  samtools:
+    type: object
+    properties:
+      threads:
+        type: integer
+        default: 2
+    default: {}
   include:
     type: object
     properties:
       ref_fasta:
         type: string
         enum: ["link", "copy"]
-      mods:
+        default: link
+      cm:
         type: string
         enum: ["link", "copy"]
+        default: copy
+      abbrevs:
+        type: string
+        enum: ["link", "copy"]
+        default: copy
+      mods:
+        type: object
+        properties:
+          file:
+            type: string
+            enum: ["link", "copy"]
+            default: copy
+          abbrevs:
+            type: string
+            enum: ["link", "copy"]
+            default: copy
+        default: {}
       fastq:
         type: string
         enum: ["link", "copy"]
+        default: link
       bam:
         type: string
         enum: ["link", "copy"]
-    default:
-      ref_fasta: link
-      mods: copy
-      fastq: link
-      bam: link
-default:
-  precision: 0.95
-  min_aln_score: 10
+        default: link
+    default: {}
 required:
   - pepfile

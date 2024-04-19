@@ -1,12 +1,48 @@
 ################################################################################
 # Plot JACUSA2 score: Mis+Del+Ins
 ################################################################################
-# TODO add tRNA family
+
+def _plot_heatmap_opts(wildcards):
+  opts = []
+
+  plots = {plot["id"]: plot for plot in config["plots"]}
+  plot = plots[wildcards.plot_id]
+
+  col_mapping = {
+      "seq": "Pos3",
+      "sprinzl": "sprinzl"}
+
+  opts.append("--column " +
+              col_mapping[pep.config["qutrna"]["coords"]])
+
+  opts.append("--split " + plot["trnas"])
+  if plot.get("title"):
+    opts.append("--title '" + plot["title"] + "'")
+  if "opts" in plot:
+    opts.append(plot["opts"])
+
+  abbrevs = pep.config["qutrna"].get("mods", {}).get("abbrevs")
+  if abbrevs:
+    opts.append("--modmap " + abbrevs)
+
+  opts.append("--left " + str(pep.config["qutrna"]["linker5"]))
+  if "ref_fasta_prefix" in pep.config["qutrna"]:
+    opts.append("--remove_prefix=" + pep.config["qutrna"]["ref_fasta_prefix"])
+
+  return " ".join(opts)
+
+
 rule plot_heatmap:
-  input: "results/jacusa2/",
-  output: directory("results/plots/heatmap/cond1~{COND1}/cond2~{COND2}/"),
+  input: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/" + SCORES,
+  output: directory("results/plots/cond1~{COND1}/cond2~{COND2}/{plot_id}"),
   conda: "qutrna",
-  log: "logs/plot/heatmap/cond1~{COND1}/cond2~{COND2}.log",
+  log: "logs/plot/heatmap/cond1~{COND1}/cond2~{COND2}/{plot_id}.log",
+  params: opts=_plot_heatmap_opts,
   shell: """
-    Rscript {workflow.basedir}/plot_score.R --output {output:q} {input:q} 2> {log:q}
+    ( mkdir -p {output} && \
+      Rscript {workflow.basedir}/scripts/plot_score.R \
+          --cond1 {wildcards.COND1:q} \
+          --cond2 {wildcards.COND2:q} \
+          --output {output:q} {input:q} \
+          {params.opts} ) 2> {log:q}
   """

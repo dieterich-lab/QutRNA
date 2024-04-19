@@ -70,6 +70,7 @@ fi
 TMP_OUT="$(mktemp $BAM.XXXXXXXXXX)" || { exit_with_error "Failed to create temp file!" ; }
 
 gunzip -c $FASTQ | split -l 10000 --filter 'gzip -c > $FILE.fastq.gz' /dev/stdin $TMP_OUT.part_
+
 for PART in $TMP_OUT.part_*.fastq.gz
 do
   parasail_aligner -a sw_trace_striped_sse41_128_16 \

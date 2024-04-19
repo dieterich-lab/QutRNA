@@ -23,6 +23,12 @@ THREADS="1" # number of threads to use for computation
 BAMS1=""   # ","-separated set of BAM files for condition1
 BAMS2=""   # ","-separated set of BAM files for condition2
 
+# TODO
+# option u_pos or Pos3
+# mod_map -> abbreviations
+
+MOD_POS="" # u_pos or Pos3
+
 usage() {
   echo "Usage: $0  -f <FASTA> -o <OUT-DIR> -m <MODS> BAMS1(,) BAMS2(,)" 1>&2
 }

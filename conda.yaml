@@ -11,11 +11,13 @@ dependencies:
   - bioconductor-iranges
   - bioconductor-plyranges
   - biopython
+  - infernal
   - click
   - coreutils
   - gawk
   - jacusa2
   - pandas
+  - python<3.12
   - pyyaml
   - r-cowplot
   - r-curl

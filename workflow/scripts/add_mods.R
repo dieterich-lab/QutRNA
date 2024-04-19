@@ -1,14 +1,15 @@
 #!/usr/bin/env Rscript
 
-# Add additional data.
 library(magrittr)
-
-WIDTH <- 5
 
 option_list <- list(
   optparse::make_option(c("-m", "--mods"),
                         type = "character",
                         help = "Known modifications"),
+  optparse::make_option(c("-s", "--sprinzl"),
+                        action="store_true",
+                        default = FALSE,
+                        help = "Sprinzl coordinates"),
   optparse::make_option(c("-o", "--output"),
                         type = "character",
                         help = "Output")
@@ -24,14 +25,16 @@ stopifnot(!is.null(opts$options$mods))
 stopifnot(length(opts$args) == 1)
 
 mods <- data.table::fread(opts$options$mods, header = TRUE) %>%
-  as.data.frame() %>%
-  dplyr::rename(seqnames = seq_id, start = u_pos) %>%
-  dplyr::mutate(end = start) %>%
-  GenomicRanges::GRanges()
+  as.data.frame()
 
 result <- read.table(opts$args, header = TRUE)
-suppressWarnings({result <- result %>% plyranges::join_overlap_left(mods)})
+
+by <- dplyr::join_by(Ref == trna, Pos3 == pos)
+if (opts$options$sprinzl) {
+  by <- dplyr::join_by(Ref == trna, sprinzl == pos)
+}
+df <- dplyr::left_join(result, mods, by = by)
 
 df %>% write.table(opts$options$output,
-                   quote=FALSE, sep = ",",
+                   quote=FALSE, sep = "\t",
                    col.names = TRUE, row.names = FALSE)

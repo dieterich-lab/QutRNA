@@ -13,7 +13,7 @@ properties:
           type: string
         base_calling:
           type: string
-          enum: ["pass", "fail", "merged"]
+          enum: ["pass", "fail", "merged", "unknown"]
         fastq:
           type: string
         bam:
@@ -35,11 +35,29 @@ properties:
           output_dir:
             type: string
             description: Output directory
+          cm:
+            type: string
           ref_fasta:
             type: string
-          mods:
+          ref_fasta_prefix:
             type: string
+          coords:
+            type: string
+            enum: ["seq", "sprinzl"]
+            description: Coordinatate system
+          mods:
+            type: object
             description: Known modifications
+            properties:
+              file:
+                type: string
+              abbrevs:
+                type: string
+            files:
+              - file
+              - abbrevs
+            required:
+              - file
           linker5:
             type: integer
             description: Length of 5' linker
@@ -58,13 +76,16 @@ properties:
               - cond2
         files:
           - ref_fasta
-          - mods
+          - cm
+        default:
+          coords: sprinzl
         required:
           - output_dir
           - ref_fasta
           - linker5
           - linker3
+          - cm
     required:
-      - degradome
+      - qutrna
 required:
   - samples

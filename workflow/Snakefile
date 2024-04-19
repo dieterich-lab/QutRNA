@@ -8,71 +8,74 @@ pepfile: config["pepfile"]
 pepschema: "schemas/pep.yaml"
 workdir: pep.config["qutrna"]["output_dir"]
 
-
-READS = ""
-if "bam" pep.sample_table.columns and "fastq" pep.sample_table.columns:
-  raise Exception("Only column bam or fastq can be set in sample table.")
-if "bam" pep.sample_table.columns:
-  READS = "bam"
-if "fastq" pep.sample_table.columns:
-  READS = "fastq"
+include: "rules/common.smk"
+include: "rules/samtools.smk"
+include: "rules/parasail.smk"
+include: "rules/jacusa2.smk"
+include: "rules/sec_structure.smk"
+include: "rules/plot.smk"
 
 
-def get_coords(fname):
-  df = pd.read_csv(MODS, header=True)
-  coords = []
-  for col in ["pos", "u_pos"]:
-    if col in df.columns:
-      coords.append(col)
+def target_alignment():
+  conds = set()
+  for cond in pep.config["qutrna"]["contrasts"]:
+    conds.add(cond["cond1"])
+    conds.add(cond["cond2"])
+  conds = list(conds)
 
-  if len(coords) == 0:
-    raise Exception("mods file is missing column pos or u_pos ")
+  tbl = pep.sample_table
+  tbl = tbl.set_index("condition")
+  tbl = tbl.loc[conds]
 
-  return coords
+  targets = expand("results/plots/alignment/sample~{sample}.pdf", sample=tbl["sample_name"].to_list())
 
-
-COORDS = []
-if MODS:
-  COORDS = get_coords(MODS)
+  return targets
 
 
-import: rules/common.smk
-import: rules/samtools.smk
-import: rules/parasail.smk
-import: rules/jacusa2.smk
-import: rules/plot.smk
+def target_sprinzl():
+  return "results/seq_to_sprinzl_filtered.tsv"
+
+
+def target_trna_plots():
+  targets = []
+
+  for conds in pep.config["qutrna"]["contrasts"]:
+    cond1 = conds["cond1"]
+    cond2 = conds["cond2"]
+
+    dname =  "results/plots/cond1~{cond1}/cond2~{cond2}/{plot_id}"
+
+    for plot in config["plots"]:
+      targets.append(
+          expand(dname,
+                 cond1=cond1, cond2=cond2,
+                 plot_id=plot["id"]))
+
+  return targets
 
 
 def target_all():
   targets = []
-  for cond1, cond2 in pep.config["qutrna"]["contrasts"]:
-    targets.append("results/plots/cond1~{cond1}/cond2~{cond2}/")
+  targets.extend(target_trna_plots())
+
+  if READS == "fastq":
+    targets.extend(target_alignment())
 
   return targets
 
+###
 
 rule all:
   input: target_all()
 
 
-def target_mapping():
-  if READS != "fastq":
-    raise Exception("Cannot perform mapping - no fastq or wrong sample table.")
-
-  conds = set()
-  for cond1, cond2 in pep.config["qutrna"]["contrasts"]:
-    conds.add(cond1)
-    conds.add(cond2)
-  conds = list(conds)
-
-  tbl = pep.sample_table
-  tbl = tbl.set_index(condition)
-  tbl = tbl.loc[conds]
-
-  targets = expand("results/plots/sample~{sample}.pdf", sample=tbl["sample_name"])
-
-  return targets
+rule alignment:
+  input: target_alignment()
 
 
-rule mapping:
-  input: target_mapping()
+rule sprinzl:
+  input: target_sprinzl()
+
+
+rule trna_plots:
+  input: target_trna_plots()
