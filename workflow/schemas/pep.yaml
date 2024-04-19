@@ -13,7 +13,6 @@ properties:
           type: string
         base_calling:
           type: string
-          enum: ["pass", "fail", "merged", "unknown"]
         fastq:
           type: string
         bam:

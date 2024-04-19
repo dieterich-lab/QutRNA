@@ -22,6 +22,8 @@ rule jacusa2_run:
          bai2=_jacusa2_input(2, suffix=".bai"),
   output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/JACUSA2.out",
   conda: "qutrna",
+  resources:
+    mem_mb=20000
   log: "logs/jacusa2/run/cond1~{COND1}/cond2~{COND2}.log",
   params: jar=config["jacusa2"]["jar"],
           opts=config["jacusa2"]["opts"],
@@ -49,6 +51,8 @@ rule jacusa2_add_scores:
          fasta=REF_FASTA,
   output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores.tsv",
   conda: "qutrna",
+  resources:
+    mem_mb=10000
   log: "logs/jacusa2/add_scores/cond1~{COND1}/cond2~{COND2}.log",
   shell: """
     Rscript {workflow.basedir:q}/scripts/add_scores.R -f {input.fasta:q} -o {output:q} {input.jacusa2:q} 2> {log:q}
@@ -60,6 +64,8 @@ rule jacusa2_add_seq_mods:
          mods=MODS,
   output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores_seq-mods.tsv",
   conda: "qutrna",
+  resources:
+    mem_mb=10000
   log: "logs/jacusa2/add_seq_mods/cond1~{COND1}/cond2~{COND2}.log",
   shell: """
     Rscript {workflow.basedir:q}/scripts/add_mods.R \
@@ -75,6 +81,8 @@ rule jacusa2_add_sprinzl_mods:
          mods=MODS,
   output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores_sprinzl-mods.tsv",
   conda: "qutrna",
+  resources:
+    mem_mb=10000
   log: "logs/jacusa2/add_sprinzl_mods/cond1~{COND1}/cond2~{COND2}.log",
   shell: """
     Rscript {workflow.basedir:q}/scripts/add_mods.R \

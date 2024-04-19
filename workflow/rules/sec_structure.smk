@@ -3,6 +3,8 @@ rule ss_transform:
          sprinzl="results/seq_to_sprinzl_filtered.tsv",
   output: temp("results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores_sprinzl.tsv"),
   conda: "qutrna",
+  resources:
+    mem_mb=2000
   log: "logs/ss/transform/cond1~{COND1}/cond2~{COND2}.log",
   params: linker5=pep.config["qutrna"]["linker5"],
   shell: """
@@ -22,6 +24,8 @@ rule cmalign_run:
   threads: config["cmalign"]["threads"],
   params: opts=config["cmalign"]["opts"],
   conda: "qutrna",
+  resources:
+    mem_mb=20000
   shell: """
     cmalign {params.opts} --cpu {threads} -o {output:q} \
         {input.cm:q} {input.fasta:q} \
@@ -33,6 +37,8 @@ rule ss_consensus_to_sprinzl:
   input: "results/cmalign/align.stk",
   output: "results/ss_consensus_to_sprinzl.tsv",
   conda: "qutrna",
+  resources:
+    mem_mb=2000
   log: "logs/ss/ss_consensus_to_sprinzl.log",
   shell: """
     python {workflow.basedir}/scripts/ss_consensus_to_sprinzl.py \
@@ -47,6 +53,8 @@ rule ss_seq_to_sprinzl:
          ss_to_sprinzl="results/ss_consensus_to_sprinzl.tsv",
   output: "results/seq_to_sprinzl.tsv",
   conda: "qutrna",
+  resources:
+    mem_mb=2000
   log: "logs/ss/seq_to_sprinzl.log",
   shell: """
     python {workflow.basedir}/scripts/seq_to_sprinzl.py \

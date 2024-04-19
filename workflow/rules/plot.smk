@@ -36,6 +36,8 @@ rule plot_heatmap:
   input: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/" + SCORES,
   output: directory("results/plots/cond1~{COND1}/cond2~{COND2}/{plot_id}"),
   conda: "qutrna",
+  resources:
+    mem_mb=10000
   log: "logs/plot/heatmap/cond1~{COND1}/cond2~{COND2}/{plot_id}.log",
   params: opts=_plot_heatmap_opts,
   shell: """

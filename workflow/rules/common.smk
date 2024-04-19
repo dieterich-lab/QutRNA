@@ -76,29 +76,34 @@ if "mods" in pep.config["qutrna"]:
 
 def _include_fnames(ftype):
   def helper(wildcards):
-    tbl = pep.sample_table.explode(["subsample_name", ftype])
-    tbl = tbl.set_index("subsample_name")
-    fnames = tbl.loc[wildcards.SUBSAMPLE, ftype]
+    tbl = pep.sample_table.explode(["base_calling", ftype]).loc[wildcards.SAMPLE].reset_index(drop=True)
+    i = (tbl.subsample_name == wildcards.SUBSAMPLE) & (tbl.base_calling == wildcards.BC)
+    if sum(i) != 1:
+      raise Exception("")
 
-    return fnames
+    return tbl.loc[i, ftype].to_list()[0]
 
   return helper
+
 
 create_include("bams",
                _include_fnames("bam"),
                "data/bams/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam",
                config["include"]["bam"])
 
-create_include("fastq",
-             _include_fnames("fastq"),
-             "data/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz",
-             config["include"]["fastq"])
+if READS != "bams":
+  create_include("fastq",
+               _include_fnames("fastq"),
+               "data/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz",
+               config["include"]["fastq"])
 
 
 rule remove_linker:
   input: REF_FASTA,
   output: REF_NO_LINKER_FASTA,
   conda: "qutrna",
+  resources:
+    mem_mb=2000
   log: "logs/remove_linker.log",
   params: linker5=pep.config["qutrna"]["linker5"],
           linker3=pep.config["qutrna"]["linker3"],
@@ -126,6 +131,8 @@ rule remove_trnas:
   input: REF_NO_LINKER_FASTA,
   output: REF_FILTERED_TRNAS_FASTA,
   conda: "qutrna",
+  resources:
+    mem_mb=2000
   log: "logs/remove_trnas.log",
   params: opts=_remove_trans_opts,
   shell: """

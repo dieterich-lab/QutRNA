@@ -37,7 +37,7 @@ properties:
         default: 10
       threads:
         type: integer
-        default: 5
+        default: 2
     default: {}
   cmalign:
     type: object
@@ -97,10 +97,6 @@ properties:
         enum: ["link", "copy"]
         default: link
       cm:
-        type: string
-        enum: ["link", "copy"]
-        default: copy
-      abbrevs:
         type: string
         enum: ["link", "copy"]
         default: copy

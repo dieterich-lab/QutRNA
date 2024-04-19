@@ -193,3 +193,15 @@ See LICENSE for details
 * [parasail](https://github.com/jeffdaily/parasail/)
 * [JACUSA2](https://github.com/dieterich-lab/JACUSA2)
 * [JACUSA2helper](https://github.com/dieterich-lab/JACUSA2helper)
+
+# snakemake workflow
+
+For the deprecated see branch
+
+YAML file for the analysis
+YAML file for the data
+
+```bash
+snakemake -f <QUTRNA>/workflow/snakefile --pep TODO --configfile=
+          
+```

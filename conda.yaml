@@ -15,11 +15,11 @@ dependencies:
   - click
   - coreutils
   - gawk
+  - gzip
   - jacusa2
   - pandas
   - python<3.12
   - pyyaml
-  - r-cowplot
   - r-curl
   - r-data.table
   - r-dplyr
@@ -27,6 +27,7 @@ dependencies:
   - r-ggpubr
   - r-jacusa2helper
   - r-magrittr
+  - r-patchwork
   - r-optparse
   - r-pheatmap
   - r-stringr

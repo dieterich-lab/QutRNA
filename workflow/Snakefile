@@ -25,16 +25,21 @@ def target_alignment():
 
   tbl = pep.sample_table
   tbl = tbl.set_index("condition")
-  tbl = tbl.loc[conds]
+  tbl = tbl.loc[conds].explode(["base_calling", READS])
 
-  targets = expand("results/plots/alignment/sample~{sample}.pdf", sample=tbl["sample_name"].to_list())
+  targets = []
+  for row in tbl.itertuples():
+    targets.extend(
+        expand("results/plots/alignment/sample~{sample}/subsample~{subsample}/{bc}.pdf",
+               sample=row.sample_name,
+               subsample=row.subsample_name,
+               bc=row.base_calling))
 
   return targets
 
 
 def target_sprinzl():
   return "results/seq_to_sprinzl_filtered.tsv"
-
 
 def target_trna_plots():
   targets = []
