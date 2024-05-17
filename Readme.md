@@ -194,9 +194,9 @@ qutrna:
 Sample description `sample_table.tsv` must be TAB-separated and contain the following columns:
 
 
-| condition | sample_name | subsample_name | base_calling | fastq|bam |
-| --------- | ----------- | -------------- | ------------ | --------- |
-| ...       | ...         | ...            | ...          | ...       |
+| condition | sample_name | subsample_name | base_calling | fastq\|bam |
+| --------- | ----------- | -------------- | ------------ | ---------- |
+| ...       | ...         | ...            | ...          | ...        |
 
 `condition`: Name of the respective condition. Will be used in `data.yaml` to define contrasts.
 `sample_name`: Name of the sample. A sample can consist of muliple FASTQ or BAM files. Samples with the same `sample_name` will be merged before RNA modification detection. 
@@ -230,7 +230,7 @@ plots:
   - id: <PLOT-ID>                 # [Required] name of the directory for the plot, in results/plots/<PLOT-ID>
     trnas: isoacceptor|isodecoder # [Required] How to group tRNA in the output
     opts: "--sort"                # (Optional) Command line options for plot_score.R
-                                               Here: sort tRNAs by median read coverage.
+                                  #            Here: sort tRNAs by median read coverage.
 [...]
 ```
 
