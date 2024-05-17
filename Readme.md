@@ -199,10 +199,14 @@ Sample description `sample_table.tsv` must be TAB-separated and contain the foll
 | ...       | ...         | ...            | ...          | ...        |
 
 `condition`: Name of the respective condition. Will be used in `data.yaml` to define contrasts.
+
 `sample_name`: Name of the sample. A sample can consist of muliple FASTQ or BAM files. Samples with the same `sample_name` will be merged before RNA modification detection. 
+
 `subsample_name`: Name of the subsample (see above). A sample can consist of multipe subsamples, e.g.: tech. replicates.
+
 `base_calling`: Metainformation describing base calling for the respective row.
                 Possible values are: 'pass', 'fail', 'merged' or 'unknown'.
+
 `fastq` or `bam`: Only one column is permitted. In either case, the absolute path of the sequencing data is expected. If `fastq` is used, then the path to GZIPPED FASTQ sequencing reads is expected. If column `bam` is provided, then mapped reads in the BAM file format are expected.
 
 #### RNA modifications
