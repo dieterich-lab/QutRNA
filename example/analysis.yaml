@@ -1,0 +1,19 @@
+params:
+  precision: 0.95
+  min_aln_score: 20
+
+parasail:
+  threads: 1
+
+plots:
+  - id: isodecoder
+    trnas: isodecoder
+  - id: isoacceptor
+    trnas: isoacceptor
+  #
+  - id: isodecoder_extended
+    trnas: isodecoder
+    opts: "--sort --show_introns --show_coverage --title 'isodecoder: {amino_acid}-{anti_codon}'"
+  - id: isoacceptor_extended
+    trnas: isoacceptor
+    opts: "--sort --show_introns --show_coverage --title 'isoacceptor: {amino_acid}'"

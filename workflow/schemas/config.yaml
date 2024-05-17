@@ -13,15 +13,19 @@ properties:
       opts:
         type: string
         description: Options for parasail
-        default: -a sw_trace_striped_sse41_128_16 -M 1 -X 1 -e 1 -o 1 -c 20 -x -d
+        default: -a sw_trace_striped_sse41_128_16 -M 2 -X 1 -c 10 -x -d
+      batch_size:
+        type: integer
+        description: Number of reads to process in batch before writing
+        default: 1000
       threads:
         type: integer
         description: Number of threads to reserve for parasail
-        default: 6
+        default: 1
       lines:
         type: integer
         description: Number of lines to split FASTQ files.
-        default: 10000
+        default: 0
     default: {}
   jacusa2:
     type: object

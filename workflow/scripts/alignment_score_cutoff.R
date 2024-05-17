@@ -12,9 +12,15 @@ option_list <- list(
   make_option(c("-r", "--reverse"),
               type = "character",
               help = "Scores of reads mapping to reverse"),
-  make_option(c("-o", "--output"),
+  make_option(c("-P", "--prc_plot"),
               type = "character",
-              help = "Output directory"),
+              help = "PRC output"),
+  make_option(c("-S", "--score_plot"),
+              type = "character",
+              help = "Score output"),
+  make_option(c("-C", "--cutoff"),
+              type = "character",
+              help = "Cutoff  output"),
   make_option(c("-p", "--precision"),
               type = "double",
               default = 0.95,
@@ -34,13 +40,13 @@ stopifnot(!is.null(opts$options$forward))
 stopifnot(!is.null(opts$options$reverse))
 stopifnot(file.exists(opts$options$forward))
 stopifnot(file.exists(opts$options$reverse))
-stopifnot(opts$options$output != "")
+stopifnot(opts$options$score_plot != "")
+stopifnot(opts$options$prc_plot != "")
+stopifnot(opts$options$cutoff != "")
 stopifnot(opts$options$precision >= 0 & opts$options$precision <= 1)
 
 fwdScore <- scan(opts$options$forward, numeric())
 revScore <- scan(opts$options$reverse, numeric())
-
-dir.create(opts$options$output, showWarnings = FALSE)
 
 df <- data.frame(
   Class = as.factor(
@@ -52,7 +58,7 @@ df$Class <- relevel(df$Class, "POS")
 p <- df %>%
   pr_curve(Class, Score) %>%
   autoplot()
-ggsave(file.path(opts$options$output, "PRC_reads.pdf"), p)
+ggsave(opts$options$prc_plot, p)
 
 score.df <- df %>%
   pr_curve(Class, Score) %>%
@@ -60,9 +66,9 @@ score.df <- df %>%
 
 idx <- which(score.df$precision > opts$options$precision)
 CutOff <- score.df[idx[length(idx)], 1]
-write(CutOff, file = file.path(opts$options$output, "CutOff.txt"))
+write(CutOff, file = opts$options$cutoff)
 
-pdf(file.path(opts$options$output, "Alignment_score_distributions.pdf"))
+pdf(opts$options$score_plot)
   hist(fwdScore, main = opts$options$title, sub = CutOff, col = "orange", xlab = "Score")
   hist(revScore, add = TRUE, col = "blue")
   abline(v = CutOff,col = "red", lwd = 2)

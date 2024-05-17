@@ -30,7 +30,7 @@ def target_alignment():
   targets = []
   for row in tbl.itertuples():
     targets.extend(
-        expand("results/plots/alignment/sample~{sample}/subsample~{subsample}/{bc}.pdf",
+        expand("results/plots/alignment/sample~{sample}/subsample~{subsample}/{bc}_score.pdf",
                sample=row.sample_name,
                subsample=row.subsample_name,
                bc=row.base_calling))
@@ -40,6 +40,7 @@ def target_alignment():
 
 def target_sprinzl():
   return "results/seq_to_sprinzl_filtered.tsv"
+
 
 def target_trna_plots():
   targets = []

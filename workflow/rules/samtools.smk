@@ -63,31 +63,30 @@ rule samtools_merge:
   """
 
 
-def _samtools_merge_reads_input(wildcards):
-  split_reads = checkpoints.parasail_split_reads.get(**wildcards).output[0]
-  fnames, = glob_wildcards(
-      os.path.join(
-        split_reads,
-        "part_{fname}.fastq.gz"))
+if config["parasail"]["lines"] > 0:
+  def _samtools_merge_reads_input(wildcards):
+    split_reads = checkpoints.parasail_split_reads.get(**wildcards).output[0]
+    fnames, = glob_wildcards(
+        os.path.join(
+          split_reads,
+          "part_{fname}.fastq.gz"))
 
-  output_dir = "results/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split"
-  return expand(os.path.join(output_dir, "part_{fname}.sorted.bam"),
-                fname=fnames,
-                allow_missing=True)
+    output_dir = "results/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split"
+    return expand(os.path.join(output_dir, "part_{fname}_raw.bam"),
+                  fname=fnames,
+                  allow_missing=True)
 
 
-rule samtools_merge_split_reads:
-  input: bams=_samtools_merge_reads_input,
-         fasta=REF_FASTA,
-  output: bam="results/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam",
-          bai="results/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam.bai",
-  conda: "qutrna",
-  resources:
-    mem_mb=10000
-  log: "logs/samtools/merge_split_reads/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam",
-  threads: 2
-  shell: """
-    ( samtools merge - {input.bams} \
-        samtools calmd /dev/stdin {input.fasta:q} | \
-        samtools sort -@ {threads} -o {output.bam:q} /dev/stdin && samtools index {output.bam:q} ) 2> {log:q}
-  """
+  rule samtools_merge_split_reads:
+    input: bams=_samtools_merge_reads_input,
+           fasta=REF_FASTA,
+    output: bam="results/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_raw.bam",
+            bai="results/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_raw.bam.bai",
+    conda: "qutrna",
+    resources:
+      mem_mb=10000
+    log: "logs/samtools/merge_split_reads/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam",
+    shell: """
+      ( samtools merge - {input.bams} | \
+          samtools sort -o {output.bam:q} /dev/stdin && samtools index {output.bam:q} ) 2> {log:q}
+    """

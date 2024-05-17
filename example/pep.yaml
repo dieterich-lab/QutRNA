@@ -1,7 +1,18 @@
-#!/bin/bash
-set -e
+pep_version: 2.0.0
+sample_table: sample_table.tsv
 
-# Run example alignment for S.Pombe
+qutrna:
+  output_dir: output
+  cm: ../data/cm.stk
+  ref_fasta: ../data/S.pombe.fasta
+  coords: seq
+  mods:
+    file: ../data/S.pombe_mods.csv
+  linker5: 23 # TODO
+  linker3: 32 # TODO
+  contrasts:
+    - cond1: IVT
+      cond2: IVT_Q
 
 # optimize alignment for S.pombe tRNAAsp IVT
 ./optimize_alignment.sh \

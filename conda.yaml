@@ -19,6 +19,7 @@ dependencies:
   - jacusa2
   - pandas
   - python<3.12
+  - pysam
   - pyyaml
   - r-curl
   - r-data.table
@@ -33,5 +34,8 @@ dependencies:
   - r-stringr
   - r-tidyr
   - r-yardstick
-  - samtools==1.16.1
+  - samtools
   - snakemake<8
+  - pdfcrop.pl
+  - texlive-core
+

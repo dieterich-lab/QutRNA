@@ -62,10 +62,10 @@ option_list <- list(
               action = "store_true",
               default = FALSE,
               help = "Show reference base"),
-  make_option(c("--dont_crop"),
-              action = "store_false",
-              default = TRUE,
-              help = "Do not crop pdf"),
+  make_option(c("--crop"),
+              action = "store_true",
+              default = FALSE,
+              help = "Do  crop pdf"),
   make_option(c("--modmap"),
               type = "character",
               help = "File mapping of modomics short name to abbrevations"),
@@ -266,8 +266,8 @@ plot_main <- function(df) {
   p <- p + coord_equal()
 
   if (!is.null(opts$options$title)) {
-    title <- gsub("\\{anti_codon\\}", unique(na.omit(df$anti_codon)), opts$options$title)
-    title <- gsub("\\{amino_acid\\}", unique(na.omit(df$amino_acid)), title)
+    title <- gsub("\\{anti_codon\\}", paste0(unique(na.omit(df$anti_codon)), collapse = ", "), opts$options$title)
+    title <- gsub("\\{amino_acid\\}", paste0(unique(na.omit(df$amino_acid)), collapse = ", "), title)
     p <- p + ggtitle(title)
   }
 
@@ -376,15 +376,19 @@ save_plot <- function(df, cov, e) {
     }
   }
 
-  tmp <- file.path(opts$options$output, paste0(e, "_tmp.pdf"))
-  output <- file.path(opts$options$output, paste0(e, ".pdf"))
-  ggsave(tmp, p, width = 33, height = 11)
-  if (opts$options$dont_crop) {
+  if (opts$options$crop) {
+    ggsave(tmp, p, width = 33, height = 11)
+    tmp <- file.path(opts$options$output, paste0(e, "_tmp.pdf"))
+    output <- file.path(opts$options$output, paste0(e, ".pdf"))
     system2("pdfcrop.pl", c("--margin=5", tmp, output))
     unlink(tmp)
+  } else {
+    output <- file.path(opts$options$output, paste0(e, ".pdf"))
+    ggsave(output, p, width = 33, height = 11)
   }
 }
 
+# TODO what abot no isoacceptor or isodecoder
 if (opts$options$split == "isoacceptor") {
   l1 <- split(df, df$amino_acid)
   l2 <- split(cov, cov$amino_acid)
