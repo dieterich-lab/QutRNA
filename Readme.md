@@ -285,10 +285,44 @@ snakemake -c 1 -f <QUTRNA>/workflow/Snakefile --pep data.yaml --configfile=analy
 
 #### Output
 
-The output of the pipeline can  be found in the output directory that you provide in `data.yaml`.
+The output of the pipeline can  be found in the `<output_dir>` that you provide in `data.yaml`.
 
-TODO results/plots/
+##### Alignment
 
+Filtered BAM alignment files: `<output_dir>/resutls/bams/filtered/<sample>/<subsample>/`:
+
+* `<output_dir>/resutls/bams/filtered/<sample>/<subsample>/<base-calling>_cutoff.txt`: Alignment score cutoff.
+* `<output_dir>/resutls/bams/filtered/<sample>/<subsample>/orient~(fwd|rev)/<base-calling>_score.txt`: All alignment scores.
+* `<output_dir>/resutls/bams/filtered/<sample>/<subsample>/orient~(fwd|rev)/<base-calling>.sorted.bam`: Unfiltered alignments.
+
+
+Final BAM alignment files: `<output_dir>/resutls/bams/final/<bam-file>`.
+
+##### JACUSA2
+
+JACUSA2 output: 
+
+* `<output_dir>/resutls/jacusa2/<cond1>/<cond2>/JACUSA2.out`: raw JACUSA2 output.
+* `<output_dir>/resutls/jacusa2/<cond1>/<cond2>/scores.tsv`: added custom scores.
+
+Optional output:
+
+* `<output_dir>/resutls/jacusa2/<cond1>/<cond2>/scores_mods.tsv`: added known RNA modifications.
+* `<output_dir>/resutls/jacusa2/<cond1>/<cond2>/scores_sprinzl.tsv`: added Sprinzl coordinates
+* `<output_dir>/resutls/jacusa2/<cond1>/<cond2>/scores_sprinzl-mods.tsv`: added known RNA modifications and Sprinzl coordindates (Annotation of RNA modifications might require Sprinzl coordinates).
+
+##### Sprinzl coordinates
+
+Secondary structure alignment and coordinate mapping related output:
+
+* `<output_dir>/results/results/cmalign/align.stk`: raw cmalign output.
+* `<output_dir>/results/ss_consensus_to_sprinzl.tsv`: consensus secondary structure alignment.
+* `<output_dir>/results/seq_to_sprinzl.tsv`: Mapping from sequence to Sprinzl coordinates.
+* `<output_dir>/results/seq_to_sprinzl_filtered.tsv`: Same as above but gaps have been removed.
+
+##### Heatmaps plots
+
+Heatmap plots:  `<output_dir>/results/plots/<cond1>/<cond2>/<plot_id>/...`
 
 ### Examples
 

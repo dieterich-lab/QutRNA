@@ -1,0 +1,5 @@
+condition	sample_name	subsample_name	base_calling	fastq
+IVT	IVT_1	IVT_1	pass	../../data/S.pombe_tRNAAsp_IVT/pass.fastq.gz
+IVT	IVT_1	IVT_1	fail	../../data/S.pombe_tRNAAsp_IVT/fail.fastq.gz
+IVT_Q	IVT_Q_1	IVT_Q_1	pass	../../data/S.pombe_tRNAAsp_IVT_Q/pass.fastq.gz
+IVT_Q	IVT_Q_1	IVT_Q_1	fail	../../data/S.pombe_tRNAAsp_IVT_Q/fail.fastq.gz

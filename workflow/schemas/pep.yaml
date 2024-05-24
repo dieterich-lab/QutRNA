@@ -75,7 +75,6 @@ properties:
               - cond2
         files:
           - ref_fasta
-          - cm
         default:
           coords: sprinzl
         required:

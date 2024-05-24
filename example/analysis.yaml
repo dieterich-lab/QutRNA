@@ -3,7 +3,7 @@ params:
   min_aln_score: 20
 
 parasail:
-  threads: 1
+  threads: 4
 
 plots:
   - id: isodecoder

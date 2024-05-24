@@ -30,7 +30,7 @@ SCORES = "scores"
 if pep.config["qutrna"]["coords"] == "sprinzl":
   SCORES += "_sprinzl"
 else:
-  SCORES += "scores_seq"
+  SCORES += "_seq"
 if "mods" in pep.config["qutrna"]:
   SCORES += "-mods"
 SCORES += ".tsv"
@@ -44,9 +44,11 @@ def create_include(name, input, output, params):
     params: include=params
     run:
         if params.include == "copy":
-         cmd = "cp"
+          cmd = "cp"
         else:
-         cmd = "ln -s"
+          cmd = "ln -s"
+
+        cmd = "cp" # FIXME
 
         shell(cmd + " {input:q} {output:q}")
 
@@ -56,10 +58,13 @@ create_include("ref_fasta",
                REF_FASTA,
                config["include"]["ref_fasta"])
 
-create_include("cm",
-               pep.config["qutrna"]["cm"],
-               CM,
-               config["include"]["cm"])
+
+if pep.config["qutrna"]["coords"] == "sprinzl":
+  create_include("cm",
+                 pep.config["qutrna"]["cm"],
+                 CM,
+                 config["include"]["cm"])
+
 
 if "mods" in pep.config["qutrna"]:
   create_include("mods",
