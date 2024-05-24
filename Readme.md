@@ -11,8 +11,8 @@ The pipeline consists of three steps:
 The most convenient way to use [QutRNA](https://github.com/dieterich-lab/QutRNA) 
 is to clone the entire repository and install dependencies with [conda](https://docs.conda.io/en/latest/).
 
-Go to your desired <LOCAL-DIRECTORY> and clone the repository:
-```bash
+Go to your desired `<LOCAL-DIRECTORY>` and clone the repository:
+```console
 cd <LOCAL-DIRECTORY>
 git clone https://github.com/dieterich-lab/QutRNA
 ```
@@ -42,9 +42,9 @@ Currently, the pipeline requires an X86\_64 architecture. (We are working on sup
 * [JACUSA2helper 1.9.9600](https://github.com/dieterich-lab/JACUSA2helper)
 * [samtools](https://www.htslib.org/)
 * [parasail v2.6.2](https://github.com/jeffdaily/parasail/archive/refs/tags/v2.6.2.tar.gz)
-* (check `conda.yaml` in the repository for a complete)
+* (check `conda.yaml` in the repository)
 
-We provide a YAML file to create a [conda](https://docs.conda.io/en/latest/) environment with all necessary software with the exception of [parasail](https://github.com/jeffdaily/parasail/) (no package in conda).
+We provide a YAML file to create a [conda](https://docs.conda.io/en/latest/) environment with all necessary software with the exception of [parasail](https://github.com/jeffdaily/parasail/). Unfortunatelly, no package for parasail exists in conda.
 
 Create a conda environment with:
 ```console
@@ -85,8 +85,8 @@ The workflow is implemented with [snakemake](https://github.com/snakemake/snakem
 * and visualization in Sprinzl coordinates.
 
 The workflow can be configered with YAML files:
-* analysis.yaml : analysis specific config, e.g.: parameters of tools.
-* data.yaml : data specific config, e.g.: reference sequence, sample description.
+* `analysis.yaml` : analysis specific config, e.g.: parameters of tools.
+* `data.yaml` : data specific config, e.g.: reference sequence, sample description.
 
 
 #### Config: analysis
@@ -104,7 +104,7 @@ params:
 ##### parasail
 
 [parasail](https://github.com/jeffdaily/parasail) is used to perform fast local alignment of reads against reference sequences of tRNAs. 
-The following defaults values for parasail are set in QutRNA and can be overritten in a custom `analysis.yaml`: 
+The following defaults values for parasail are set in QutRNA and can be overwritten in a custom `analysis.yaml`: 
 
 ```yaml
 [...]
@@ -115,9 +115,11 @@ parasail:
   lines: 0
 [...]
 ```
-`opts` defines parasail specific command line options (check [parasail](https://github.com/jeffdaily/parasail) for details)
-`batch_size` defines the batch size of reads, the parameter influences main memory requirements (check [parasail](https://github.com/jeffdaily/parasail) for details)
-`threads` sets the number of parallel threads to use. Adjust to your local computing machine
+`opts` defines parasail specific command line options (check [parasail](https://github.com/jeffdaily/parasail) for details).
+
+`batch_size` defines the batch size of reads, the parameter influences main memory requirements (check [parasail](https://github.com/jeffdaily/parasail) for details).
+`threads` sets the number of parallel threads to use. Adjust to your local computing machine.
+
 If `lines` is > 0, each FASTQ will be split in files with the number of lines. Make sure that the number is divisible by 4! If splitting input is desired, choose depending on the number of raw reads and pick a reasonably high number of lines (> 10000).
 
 
@@ -136,9 +138,11 @@ jacusa2:
 [...]
 ```
 
-`opts` defines JACUSA2 specific command line options (check [JACUASA2](https://github.com/dieterich-lab/JACUSA2) for details)
-`min_cov` defines the minimum number of reads at a given position in EACH BAM file to consider for RNA modification detection
-`threads` sets the number of parallel threads to use. Adjust to your local computing machine
+`opts` defines JACUSA2 specific command line options (check [JACUASA2](https://github.com/dieterich-lab/JACUSA2) for details).
+
+`min_cov` defines the minimum number of reads at a given position in EACH BAM file to consider for RNA modification detection.
+
+`threads` sets the number of parallel threads to use. Adjust to your local computing machine.
 
 ##### cmalign
 
@@ -151,77 +155,11 @@ cmalign:
   threads: 2
 ```
 
-`opts` defines cmalign specific command line options (check [cmalign]() for details )
-`threads` sets the number of parallel threads to use. Adjust to your local computing machine
+`opts` defines cmalign specific command line options (check [cmalign](https://github.com/brendanf/inferrnal) for details).
+
+`threads` sets the number of parallel threads to use. Adjust to your local computing machine.
 
 The underlying covariance model is data specific and therefore defined in `data.yaml`.
-
-
-#### Config: data
-
-Every analysis requries a `data.yaml` where details about the underlying data are defined.
-
-In the following an extensive example of `data.yaml` with descriptions is presented:
-
-```yaml
-pep_version: 2.0.0             # [Required] by Snakemake
-
-sample_table: sample_table.tsv # [Required] Filename of sample description
-
-qutrna:
-  output_dir: <OUTPUT-DIR> # [Required] Where QutRNA output will be written to
-  cm: <PATH-TO-CM>         # [Required] Path to custom covariance model 
-  ref_fasta: <PATH-TO-REF-FASTA>    # [Required] Path to reference sequence
-  ref_fasta_prefix: "Homo_sapiens_" # (Optional) Prefix to remove from sequence ID in visualization
-  coords: sprinzl                   # [Required] Possible values are 'seq' or 'sprinzl'.
-                                    #            WARNING! Coordinates of RNA modifications must be compatible
-  mods:
-    file: <PATH-TO-MODS>     # (Optional) Path to RNA modifications
-    abbrev: <PATH-TO-ABBREV> # (Optional) Path to RNA modification abbreviations
-  linker5: <INTEGER> # [Required] length of 5' linker in nt
-  linker3: <INTEGER> # [Required] lentgh of 3' linker in nt
-  remove_trnas:
-    [seq1, ]         # (Optional) Sequence IDs to ignore for secondary structure alignment and visualization
-                     #            However, those Sequence IDs will be used for the alignment.
-  contrasts:         # [Required] Define combinations of conditions to analyse.
-                     #            Multiple comparisons are possible.
-    - cond1: <CONDITION1> # must match to condition in sample_table.tsv
-      cond2: <CONDITION2> # must match to condition in sample_table.tsv
-```
-
-#### Sample table
-
-Sample description `sample_table.tsv` must be TAB-separated and contain the following columns:
-
-
-| condition | sample_name | subsample_name | base_calling | fastq\|bam |
-| --------- | ----------- | -------------- | ------------ | ---------- |
-| ...       | ...         | ...            | ...          | ...        |
-
-`condition`: Name of the respective condition. Will be used in `data.yaml` to define contrasts.
-
-`sample_name`: Name of the sample. A sample can consist of muliple FASTQ or BAM files. Samples with the same `sample_name` will be merged before RNA modification detection. 
-
-`subsample_name`: Name of the subsample (see above). A sample can consist of multipe subsamples, e.g.: tech. replicates.
-
-`base_calling`: Metainformation describing base calling for the respective row.
-                Possible values are: 'pass', 'fail', 'merged' or 'unknown'.
-
-`fastq` or `bam`: Only one column is permitted. In either case, the absolute path of the sequencing data is expected. If `fastq` is used, then the path to GZIPPED FASTQ sequencing reads is expected. If column `bam` is provided, then mapped reads in the BAM file format are expected.
-
-#### RNA modifications
-
-The file with RNA modification information is expected to be TAB-separated and contain the following columns:
-
-| trna                      | pos         | mod            |
-| ------------------------- | ----------- | -------------- |
-| (should match ref. fasta) | ...         | ...            |
-
-The file with abbreviations with RNA modifications is expected to be TAB-separated and contain the following columns:
-
-| short_name                  | abbrev |
-| --------------------------- | ------ |
-| (should match column 'mod') | ...    |
 
 #### Options for visualization
 
@@ -253,7 +191,7 @@ The script `workflow/scripts/plot_score.R` supports the following options that c
 --crop                Crop final pdf to remove white space (requires TEX environment)
 ```
 
-Multiple plots, each with unique `<PLOT-ID>` and different options are supported.
+Multiple plots with unique `<PLOT-ID>` fields and different options are supported.
 
 ##### Crop output
 
@@ -263,6 +201,72 @@ The script is included in the conda environment of QutRNA but unfortunatelly the
 It is beyond this introduction, to go in to details how to setup up TEX. Please check your OS or distribution how to setup TEX.
 
 If you manage to setup TEX, add `--crop` to plot options to remove white space from final heatmap plots.
+
+#### Config: data
+
+Every analysis requries a `data.yaml` where details about the underlying data are defined.
+
+In the following an extensive example of `data.yaml` with descriptions is presented:
+
+```yaml
+pep_version: 2.0.0                  # [Required] by Snakemake
+     
+sample_table: sample_table.tsv      # [Required] Filename of sample description
+
+qutrna:
+  output_dir: <OUTPUT-DIR>          # [Required] Where QutRNA output will be written to
+  cm: <PATH-TO-CM>                  # [Required] Path to custom covariance model 
+  ref_fasta: <PATH-TO-REF-FASTA>    # [Required] Path to reference sequence
+  ref_fasta_prefix: "Homo_sapiens_" # (Optional) Prefix to remove from sequence ID in visualization
+  coords: sprinzl                   # [Required] Possible values are 'seq' or 'sprinzl'.
+                                    #            WARNING! Coordinates of RNA modifications must be compatible
+  mods:
+    file: <PATH-TO-MODS>            # (Optional) Path to RNA modifications
+    abbrev: <PATH-TO-ABBREV>        # (Optional) Path to RNA modification abbreviations
+  linker5: <INTEGER>                # [Required] length of 5' linker in nt
+  linker3: <INTEGER>                # [Required] lentgh of 3' linker in nt
+  remove_trnas:
+    [seq1, ]                        # (Optional) Sequence IDs to ignore for secondary structure alignment and visualization
+                                    #            However, those Sequence IDs will be used for the alignment.
+  contrasts:                        # [Required] Define combinations of conditions to analyse.
+                                    #            Multiple comparisons are possible.
+    - cond1: <CONDITION1>           # must match to condition in sample_table.tsv
+      cond2: <CONDITION2>           # must match to condition in sample_table.tsv
+```
+
+#### Sample table
+
+Sample description `sample_table.tsv` must be TAB-separated file and contain the following columns:
+
+
+| condition | sample_name | subsample_name | base_calling | fastq\|bam |
+| --------- | ----------- | -------------- | ------------ | ---------- |
+| ...       | ...         | ...            | ...          | ...        |
+
+`condition`: Name of the respective condition. Will be used in `data.yaml` to define contrasts.
+
+`sample_name`: Name of the sample. A sample can consist of muliple FASTQ or BAM files. Samples with the same `sample_name` will be merged before RNA modification detection. 
+
+`subsample_name`: Name of the subsample (see above). A sample can consist of multipe subsamples, e.g.: tech. replicates.
+
+`base_calling`: Metainformation describing base calling for the respective row.
+                Possible values are: 'pass', 'fail', 'merged' or 'unknown'.
+
+`fastq` or `bam`: Only one column is permitted. In either case, the absolute path of the sequencing data is expected. If `fastq` is used, then the path to GZIPPED FASTQ sequencing reads is expected. If column `bam` is provided, then mapped reads in the BAM file format are expected.
+
+#### RNA modifications
+
+The file with RNA modification information is expected to be TAB-separated and contain the following columns:
+
+| trna                      | pos         | mod            |
+| ------------------------- | ----------- | -------------- |
+| (should match ref. fasta) | ...         | ...            |
+
+The file with abbreviations with RNA modifications is expected to be TAB-separated and contain the following columns:
+
+| short_name                  | abbrev |
+| --------------------------- | ------ |
+| (should match column 'mod') | ...    |
 
 ### Executing the workflow
 
@@ -281,9 +285,10 @@ snakemake -c 1 -f <QUTRNA>/workflow/Snakefile --pep data.yaml --configfile=analy
 
 #### Output
 
-The output of the pipeline can  be found in the output directorty that you provided in `data.yaml`.
+The output of the pipeline can  be found in the output directory that you provide in `data.yaml`.
 
 TODO results/plots/
+
 
 ### Examples
 

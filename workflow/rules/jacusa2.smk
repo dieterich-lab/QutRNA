@@ -5,7 +5,7 @@ def _jacusa2_input(cond_i, suffix=""):
   def helper(wildcards):
     condition = wildcards[cond]
     tbl = pep.sample_table.set_index("condition")
-    samples = tbl.loc[condition, ["sample_name"]].to_list()
+    samples = tbl.loc[condition, "sample_name"].to_list()
 
     return expand(fname, sample=samples)
 

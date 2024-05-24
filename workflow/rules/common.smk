@@ -76,7 +76,7 @@ if "mods" in pep.config["qutrna"]:
 
 def _include_fnames(ftype):
   def helper(wildcards):
-    tbl = pep.sample_table.explode(["base_calling", ftype]).loc[wildcards.SAMPLE].reset_index(drop=True)
+    tbl = pep.sample_table.explode(["base_calling", ftype]).loc[[wildcards.SAMPLE]]
     i = (tbl.subsample_name == wildcards.SUBSAMPLE) & (tbl.base_calling == wildcards.BC)
     if sum(i) != 1:
       raise Exception("")

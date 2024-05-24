@@ -58,7 +58,7 @@ if config["parasail"]["lines"] > 0:
     log: "logs/parasail/map_split_reads/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.log",
     conda: "qutrna"
     resources:
-      mem_mb=12000
+      mem_mb=16000
     threads: config["parasail"]["threads"]
     params: parasail_opts=config["parasail"]["opts"],
             parasail_batch_size=_batch_size(),
@@ -82,21 +82,20 @@ else:
     log: "logs/parasail/map/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.log",
     conda: "qutrna"
     resources:
-      mem_mb=12000
+      mem_mb=16000
     threads: config["parasail"]["threads"]
     params: parasail_opts=config["parasail"]["opts"],
             parasail_batch_size=_batch_size(),
     shell: """
-    (
       parasail_aligner {params.parasail_opts} {params.parasail_batch_size} \
                         -t {threads} \
                         -O SAMH \
                         -f {input.ref_fasta:q} \
                         -g {output:q}.tmp \
-                        -q {input.fastq:q}
+                        < {input.fastq:q} 2> {log:q}
       samtools view -bS {output}.tmp | \
-      samtools calmd --output-fmt BAM /dev/stdin {input.ref_fasta:q} > {output:q} && \
-      rm {output}.tmp ) 2> {log:q}
+        samtools calmd --output-fmt BAM /dev/stdin {input.ref_fasta:q} > {output:q}
+      rm {output}.tmp
     """
 
 ##############################################################################

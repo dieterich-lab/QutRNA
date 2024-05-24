@@ -1,5 +1,6 @@
 #!/usr/bin/env Rscript
 
+options(error = traceback)
 # Plot JACUSA2 score and existing modification info as a heatmap)
 
 library(optparse)
@@ -58,6 +59,10 @@ option_list <- list(
               action = "store_true",
               default = FALSE,
               help = "Show coverage"),
+  make_option(c("--scale_by_cov"),
+              action = "store_true",
+              default = FALSE,
+              help = "Scale tiles by coverage"),
   make_option(c("--show_ref"),
               action = "store_true",
               default = FALSE,
@@ -84,22 +89,23 @@ option_list <- list(
 
 opts <- parse_args(
   OptionParser(option_list = option_list),
-  # args = c("--cond1=wt",
-  #          "--cond2=test",
-  #          "--split=isodecoder",
-  #          "--column=sprinzl",
-  # #          "--show_introns",
-  # #          "--title=isodecoder: {amino_acid}-{anti_codon}",
-  # #          "--sort",
-  # #          "--show_coverage",
-  #          "--left=23",
-  #            "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/human_mods_map.tsv",
-  # #          #"--hide_mods",
-  #          "--dont_crop",
-  #          "--output=~/tmp/plot_score",
-  # #          "--remove_prefix=Homo_sapiens_",
-  # #          #"--remove_prefix=Mus_musculus_",
-  #          "scores_sprinzl-mods.tsv"),
+  #args = c("--cond1=wt",
+  #         "--cond2=NSUN2",
+  #         "--split=isodecoder",
+  #         "--column=sprinzl",
+  #         "--show_introns",
+  ##          "--title=isodecoder: {amino_acid}-{anti_codon}",
+  #         "--sort",
+  ##         "--show_coverage",
+  #         "--left=23",
+  #         "--scale_by_cov",
+  #         "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_mods_map.tsv",
+  ##          #"--hide_mods",
+  ##         "--crop",
+  #         "--output=~/tmp/plot_score",
+  #        "--remove_prefix=Homo_sapiens_",
+  ##          #"--remove_prefix=Mus_musculus_",
+  #         "scores_sprinzl-mods.tsv"),
   positional_arguments = TRUE
 )
 stopifnot(!is.null(opts$options$output))
@@ -229,18 +235,78 @@ plot_table <- function(df) {
 
 plot_main <- function(df) {
   sprinzl <- levels(df$sprinzl)
-  vjust <- rep(0, length(sprinzl))
-  vjust[grep("^(i|e)", sprinzl)] <- 0.25
 
-  p <- df |>
-    ggplot(aes(x = .data[[pos_col]], y = Ref)) +
+  if (opts$options$scale_by_cov) {
+    s <- "median cov. Q1\n(1st. quartile)"
+    
+    heights <- df |>
+      distinct(Ref, median_coverage) |>
+      filter(!is.na(median_coverage)) |>
+      mutate(quartile = paste0("Q", ntile(median_coverage, 4))) |>
+      group_by(quartile) |>
+      arrange(Ref) |>
+      mutate(height = median_coverage / sum(median_coverage, na.rm = TRUE),
+             y_end = cumsum(height),
+             y_pos = y_end - height / 2) |>
+      ungroup() |>
+      select(-median_coverage) |>
+      mutate(
+        quartile = case_when(
+          quartile == "Q1" ~ s,
+          .default = quartile),
+        quartile = factor(quartile, levels = c(paste0("Q", 4:2), s)))
+
+    df <- df |>
+      left_join(heights, by = join_by(Ref))
+
+    helper_y_pos <- function(q) {
+      heights |>
+        filter(quartile == q) |>
+        pull(y_pos)
+    }
+    helper_Ref <- function(q) {
+      heights |>
+        filter(quartile == q) |>
+        pull(Ref)
+    }
+
+    p <- df |> 
+      ggplot(aes(x = .data[[pos_col]], y = y_pos, fill = score)) +
+      facet_grid(quartile ~ ., scales = "free_y", space = "free_y") +
+      geom_tile(aes(height = height), width = 1, colour = "white") +
+      ylab("median cov.")
+      
+      q = unique(heights$quartile)
+      n = length(q)
+      
+      l <- list()
+      l <- append(l, quartile == s ~ scale_y_continuous(breaks = helper_y_pos(s), labels = helper_Ref(s)))
+      if (n > 1) {
+        l <- append(l, quartile == "Q2" ~ scale_y_continuous(breaks = helper_y_pos("Q2"), labels = helper_Ref("Q2")))
+      }
+      if (n > 2) {
+        l <- append(l, quartile == "Q3" ~ scale_y_continuous(breaks = helper_y_pos("Q3"), labels = helper_Ref("Q3")))
+      }
+      if (n > 3) {
+        l <- append(l, quartile == "Q4" ~ scale_y_continuous(breaks = helper_y_pos("Q4"), labels = helper_Ref("Q4")))
+      }
+      # FIXME less than 4 scales
+      p <- p + ggh4x::facetted_pos_scales(y = l)
+  } else {
+    p <- df |> 
+      ggplot(aes(x = .data[[pos_col]], y = Ref, fill = score)) +
+      geom_tile(colour = "white", width = 1, height = 1) +
       ylab("") +
+      coord_equal()
+  }
+
+  p <- p +
       scale_fill_gradient(low = "yellow", high = "blue", na.value = "grey") +
       theme_bw() +
       theme(panel.background = element_rect(fill = "white", color = "white"),
             legend.position = "top",
             panel.border = element_blank(),
-            axis.text.x = element_text(angle = 45),
+            axis.text.x = element_text(angle = 45, size = 8),
             panel.grid.major = element_blank(),
             panel.grid.minor = element_blank(),
             axis.text.y = element_text(family = "mono"),
@@ -252,7 +318,6 @@ plot_main <- function(df) {
     p <- p + xlab("pos. in tRNA seq.")
   }
 
-  p <- p + geom_tile(aes(fill = score), colour = "white", width = 1, height = 1)
   if (opts$options$show_ref) {
       p <- p + geom_text(aes(label = ref_base))
       if (!opts$options$hide_mods) {
@@ -263,7 +328,6 @@ plot_main <- function(df) {
         p <- p + geom_text(aes(label = mod))
       }
   }
-  p <- p + coord_equal()
 
   if (!is.null(opts$options$title)) {
     title <- gsub("\\{anti_codon\\}", paste0(unique(na.omit(df$anti_codon)), collapse = ", "), opts$options$title)
@@ -322,12 +386,6 @@ plot_complex <- function(df, cov) {
     stringr::str_pad(s, max(nchar(s)), side = "right", pad = "-")
   }
 
-  if (opts$options$sort) {
-    tmp <- sort_ref(df, cov)
-    df <- tmp$df
-    cov <- tmp$cov
-  }
-
   p1 <- plot_main(df) +
     scale_y_discrete(labels = padding_helper, position = "right")
   p2 <- plot_coverage(cov)
@@ -361,6 +419,12 @@ save_plot <- function(df, cov, e) {
   df[[pos_col]] <- droplevels(df[[pos_col]])
   df <- add_missing(df)
 
+  if (opts$options$sort) {
+    tmp <- sort_ref(df, cov)
+    df <- tmp$df
+    cov <- tmp$cov
+  }
+  
   if (opts$options$show_coverage) {
     p <- plot_complex(df, cov)
   } else {
@@ -370,15 +434,15 @@ save_plot <- function(df, cov, e) {
       if (!is.null(tbl)) {
         p <- ((p + theme(plot.margin = margin(0, 20, 0, 0))) | tbl) +
           plot_layout(ncol = 3,
-                      widths = unit(c(-1, 4 , 4), c("null", "cm", "cm"))) +
+                      widths = unit(c(-1, 4 , 2), c("null", "cm", "cm"))) +
           theme(plot.margin = margin(0, 0, 0, 0))
       }
     }
   }
 
   if (opts$options$crop) {
-    ggsave(tmp, p, width = 33, height = 11)
     tmp <- file.path(opts$options$output, paste0(e, "_tmp.pdf"))
+    ggsave(tmp, p, width = 33, height = 11)
     output <- file.path(opts$options$output, paste0(e, ".pdf"))
     system2("pdfcrop.pl", c("--margin=5", tmp, output))
     unlink(tmp)
@@ -388,7 +452,6 @@ save_plot <- function(df, cov, e) {
   }
 }
 
-# TODO what abot no isoacceptor or isodecoder
 if (opts$options$split == "isoacceptor") {
   l1 <- split(df, df$amino_acid)
   l2 <- split(cov, cov$amino_acid)
@@ -402,7 +465,7 @@ if (opts$options$split == "isoacceptor") {
     save_plot(l1[[isodec]], l2[[isodec]], isodec)
   }
 } else {
-  stop("Unknown option: --split")
+  save_plot(df, cov, "all")
 }
 
 warnings()
