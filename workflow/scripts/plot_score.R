@@ -93,23 +93,23 @@ option_list <- list(
 
 opts <- parse_args(
   OptionParser(option_list = option_list),
-  #args = c("--cond1=wt",
-  #        "--cond2=NSUN2",
-  #        "--split=isodecoder",
-  #        "--column=sprinzl",
-  #        "--show_introns",
-  ##          "--title=isodecoder: {amino_acid}-{anti_codon}",
-  #        "--sort",
-  ##         "--show_coverage",
-  #        "--left=23",
-  #        "--scale_by_cov",
-  #        "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_mods_map.tsv",
-  ##          #"--hide_mods",
-  ##         "--crop",
-  #        "--output=~/tmp/plot_score",
-  #       "--remove_prefix=Homo_sapiens_",
-  ##          #"--remove_prefix=Mus_musculus_",
-  #        "scores_sprinzl-mods.tsv"),
+  # args = c("--cond1=wt",
+  #         "--cond2=NSUN2",
+  #         "--split=isoacceptor",
+  #         "--column=sprinzl",
+  #         "--show_introns",
+  # #          "--title=isodecoder: {amino_acid}-{anti_codon}",
+  #         "--sort",
+  # #         "--show_coverage",
+  #         "--left=23",
+  #         "--scale_by_cov",
+  #         "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_mods_map.tsv",
+  # #          #"--hide_mods",
+  # #         "--crop",
+  #         "--output=~/tmp/plot_score",
+  #        "--remove_prefix=Homo_sapiens_",
+  # #          #"--remove_prefix=Mus_musculus_",
+  #         "scores_sprinzl-mods.tsv"),
   positional_arguments = TRUE
 )
 stopifnot(!is.null(opts$options$output))
@@ -467,7 +467,7 @@ save_plot <- function(df, cov, e) {
     tmp <- file.path(opts$options$output, paste0(e, "_tmp.pdf"))
     ggsave(tmp, p, width = 33, height = 11)
     output <- file.path(opts$options$output, paste0(e, ".pdf"))
-    system2("pdfcrop", c("--margin=5", tmp, output))
+    system2("pdfcrop.pl", c("--margin=5", tmp, output))
     unlink(tmp)
   } else {
     output <- file.path(opts$options$output, paste0(e, ".pdf"))

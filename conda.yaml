@@ -34,8 +34,8 @@ dependencies:
   - r-stringr
   - r-tidyr
   - r-yardstick
+  - r-ggh4x
   - samtools
   - snakemake<8
   - pdfcrop.pl
-  - texlive-core
 
