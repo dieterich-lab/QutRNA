@@ -81,6 +81,10 @@ option_list <- list(
               type = "character",
               default = "",
               help = "Remove prefix from tRNA"),
+  make_option(c("--flag"),
+              type = "character",
+              default = NULL,
+              help = "Flag positions, e.g.: tRNA:pos, use ','"),
   make_option(c("--positions"),
               type = "character",
               default = NULL,
@@ -90,22 +94,22 @@ option_list <- list(
 opts <- parse_args(
   OptionParser(option_list = option_list),
   #args = c("--cond1=wt",
-  #         "--cond2=NSUN2",
-  #         "--split=isodecoder",
-  #         "--column=sprinzl",
-  #         "--show_introns",
+  #        "--cond2=NSUN2",
+  #        "--split=isodecoder",
+  #        "--column=sprinzl",
+  #        "--show_introns",
   ##          "--title=isodecoder: {amino_acid}-{anti_codon}",
-  #         "--sort",
+  #        "--sort",
   ##         "--show_coverage",
-  #         "--left=23",
-  #         "--scale_by_cov",
-  #         "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_mods_map.tsv",
+  #        "--left=23",
+  #        "--scale_by_cov",
+  #        "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_mods_map.tsv",
   ##          #"--hide_mods",
   ##         "--crop",
-  #         "--output=~/tmp/plot_score",
-  #        "--remove_prefix=Homo_sapiens_",
+  #        "--output=~/tmp/plot_score",
+  #       "--remove_prefix=Homo_sapiens_",
   ##          #"--remove_prefix=Mus_musculus_",
-  #         "scores_sprinzl-mods.tsv"),
+  #        "scores_sprinzl-mods.tsv"),
   positional_arguments = TRUE
 )
 stopifnot(!is.null(opts$options$output))
@@ -143,6 +147,16 @@ if (pos_col == "sprinzl") {
 } else {
   df[[pos_col]] <- factor(df[[pos_col]],
                           levels = stringr::str_sort(unique(df[[pos_col]]), numeric = TRUE), ordered = TRUE)
+}
+
+df$flag <- FALSE
+if (!is.null(opts$options$flag)) {
+  df$tmp_coords <- paste0(df$Ref, ":", df[[pos_col]])
+  flag <- strsplit(opts$options$flag, ",")[[1]]
+  i <- df$tmp_coords %in% flag
+  df[i, opts$options$score] <- NA
+  df[i, "flag"] <- TRUE
+  df$tmp_coords <- NULL
 }
 
 df$trna <- df$Ref
@@ -190,7 +204,7 @@ df[["ref_base"]] <- substr(df[["Kmer"]], 3, 3)
 
 df$score <- df[, opts$options$score]
 df$score[df$score < 0] <- 0
-cols <- c("Ref", pos_col, "anti_codon", "amino_acid", "score", "mod", "Pos3", "ref_base", "total_coverage", "median_coverage", "expression")
+cols <- c("Ref", pos_col, "anti_codon", "amino_acid", "score", "mod", "Pos3", "ref_base", "total_coverage", "median_coverage", "expression", "flag")
 if (!is.null(opts$options$modmap)) {
   modmap <- read.table(opts$options$modmap, header = TRUE, sep = "\t", quote = "", comment.char = "")
   stopifnot(length(modmap$shortname) == length(unique(modmap$shortname)))
@@ -316,6 +330,15 @@ plot_main <- function(df) {
     p <- p + xlab("Sprinzl pos.")
   } else {
     p <- p + xlab("pos. in tRNA seq.")
+  }
+
+  if (!is.null(opts$options$flag)) {
+    if ("flag" %in% names(df)) {
+      data <- df |>
+        filter(flag == TRUE)
+      p <- p + geom_point(data = data,
+                          shape = 4, color = "darkred")
+    }
   }
 
   if (opts$options$show_ref) {
@@ -444,7 +467,7 @@ save_plot <- function(df, cov, e) {
     tmp <- file.path(opts$options$output, paste0(e, "_tmp.pdf"))
     ggsave(tmp, p, width = 33, height = 11)
     output <- file.path(opts$options$output, paste0(e, ".pdf"))
-    system2("pdfcrop.pl", c("--margin=5", tmp, output))
+    system2("pdfcrop", c("--margin=5", tmp, output))
     unlink(tmp)
   } else {
     output <- file.path(opts$options$output, paste0(e, ".pdf"))

@@ -70,6 +70,11 @@ properties:
                 type: string
               cond2:
                 type: string
+              flag:
+                type: array
+                items:
+                  type: string
+                uniqueItems: true
             required:
               - cond1
               - cond2

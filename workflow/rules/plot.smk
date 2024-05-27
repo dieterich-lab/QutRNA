@@ -29,6 +29,10 @@ def _plot_heatmap_opts(wildcards):
   if "ref_fasta_prefix" in pep.config["qutrna"]:
     opts.append("--remove_prefix=" + pep.config["qutrna"]["ref_fasta_prefix"])
 
+  for contrast in pep.config["qutrna"]["contrasts"]:
+    if wildcards.COND1 == contrast["cond1"] and wildcards.COND2 == contrast["cond2"] and "flag" in contrast:
+      opts.append("--flag=" + ",".join(contrast["flag"]))
+
   return " ".join(opts)
 
 
