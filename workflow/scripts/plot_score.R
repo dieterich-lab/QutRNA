@@ -106,6 +106,7 @@ opts <- parse_args(
   #         "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_mods_map.tsv",
   # #          #"--hide_mods",
   # #         "--crop",
+  #         "--flag=Homo_sapiens_tRNA-Tyr-GTA-5-4:2",
   #         "--output=~/tmp/plot_score",
   #        "--remove_prefix=Homo_sapiens_",
   # #          #"--remove_prefix=Mus_musculus_",
@@ -181,6 +182,14 @@ cov <- df %>%
                   "1" ~ opts$options$cond1,
                   "2" ~ opts$options$cond2,
                 ))
+cov_cond1 <- cov |>
+  select(Ref, condition, coverage) |>
+  filter(condition == opts$options$cond1) |>
+  group_by(Ref, condition) |>
+  summarise(mean_coverage1 = mean(coverage))
+
+df <- df |>
+  left_join(cov_cond1)
 
 cov_summary <- cov %>%
   select(Ref, coverage) %>%
@@ -204,7 +213,7 @@ df[["ref_base"]] <- substr(df[["Kmer"]], 3, 3)
 
 df$score <- df[, opts$options$score]
 df$score[df$score < 0] <- 0
-cols <- c("Ref", pos_col, "anti_codon", "amino_acid", "score", "mod", "Pos3", "ref_base", "total_coverage", "median_coverage", "expression", "flag")
+cols <- c("Ref", pos_col, "anti_codon", "amino_acid", "score", "mod", "Pos3", "ref_base", "mean_coverage1", "total_coverage", "median_coverage", "expression", "flag")
 if (!is.null(opts$options$modmap)) {
   modmap <- read.table(opts$options$modmap, header = TRUE, sep = "\t", quote = "", comment.char = "")
   stopifnot(length(modmap$shortname) == length(unique(modmap$shortname)))
@@ -251,61 +260,62 @@ plot_main <- function(df) {
   sprinzl <- levels(df$sprinzl)
 
   if (opts$options$scale_by_cov) {
-    s <- "median cov. Q1\n(1st. quartile)"
+    # s <- "median cov. Q1\n(1st. quartile)"
     
     heights <- df |>
-      distinct(Ref, median_coverage) |>
-      filter(!is.na(median_coverage)) |>
-      mutate(quartile = paste0("Q", ntile(median_coverage, 4))) |>
-      group_by(quartile) |>
+      distinct(Ref, mean_coverage1) |>
+      filter(!is.na(mean_coverage1)) |>
+      #mutate(quartile = paste0("Q", ntile(median_coverage, 4))) |>
+      #group_by(quartile) |>
       arrange(Ref) |>
-      mutate(height = median_coverage / sum(median_coverage, na.rm = TRUE),
+      mutate(height = 10 * mean_coverage1 / sum(mean_coverage1, na.rm = TRUE),
              y_end = cumsum(height),
              y_pos = y_end - height / 2) |>
-      ungroup() |>
-      select(-median_coverage) |>
-      mutate(
-        quartile = case_when(
-          quartile == "Q1" ~ s,
-          .default = quartile),
-        quartile = factor(quartile, levels = c(paste0("Q", 4:2), s)))
+      #ungroup() |>
+      select(-mean_coverage1)# |>
+      #mutate(
+      #  quartile = case_when(
+      #    quartile == "Q1" ~ s,
+      #    .default = quartile),
+      #  quartile = factor(quartile, levels = c(paste0("Q", 4:2), s)))
 
     df <- df |>
       left_join(heights, by = join_by(Ref))
 
-    helper_y_pos <- function(q) {
-      heights |>
-        filter(quartile == q) |>
-        pull(y_pos)
-    }
-    helper_Ref <- function(q) {
-      heights |>
-        filter(quartile == q) |>
-        pull(Ref)
-    }
+    # helper_y_pos <- function(q) {
+    #   heights |>
+    #     filter(quartile == q) |>
+    #     pull(y_pos)
+    # }
+    # helper_Ref <- function(q) {
+    #   heights |>
+    #     filter(quartile == q) |>
+    #     pull(Ref)
+    # }
 
     p <- df |> 
       ggplot(aes(x = .data[[pos_col]], y = y_pos, fill = score)) +
-      facet_grid(quartile ~ ., scales = "free_y", space = "free_y") +
+      #facet_grid(quartile ~ ., scales = "free_y", space = "free_y") +
       geom_tile(aes(height = height), width = 1, colour = "white") +
-      ylab("median cov.")
+      # ylab("mean cov.") + 
+      scale_y_continuous(breaks = heights$y_pos, labels = heights$Ref)
       
-      q = unique(heights$quartile)
-      n = length(q)
-      
-      l <- list()
-      l <- append(l, quartile == s ~ scale_y_continuous(breaks = helper_y_pos(s), labels = helper_Ref(s)))
-      if (n > 1) {
-        l <- append(l, quartile == "Q2" ~ scale_y_continuous(breaks = helper_y_pos("Q2"), labels = helper_Ref("Q2")))
-      }
-      if (n > 2) {
-        l <- append(l, quartile == "Q3" ~ scale_y_continuous(breaks = helper_y_pos("Q3"), labels = helper_Ref("Q3")))
-      }
-      if (n > 3) {
-        l <- append(l, quartile == "Q4" ~ scale_y_continuous(breaks = helper_y_pos("Q4"), labels = helper_Ref("Q4")))
-      }
-      # FIXME less than 4 scales
-      p <- p + ggh4x::facetted_pos_scales(y = l)
+      # q = unique(heights$quartile)
+      # n = length(q)
+      # 
+      # l <- list()
+      # l <- append(l, quartile == s ~ scale_y_continuous(breaks = helper_y_pos(s), labels = helper_Ref(s)))
+      # if (n > 1) {
+      #   l <- append(l, quartile == "Q2" ~ scale_y_continuous(breaks = helper_y_pos("Q2"), labels = helper_Ref("Q2")))
+      # }
+      # if (n > 2) {
+      #   l <- append(l, quartile == "Q3" ~ scale_y_continuous(breaks = helper_y_pos("Q3"), labels = helper_Ref("Q3")))
+      # }
+      # if (n > 3) {
+      #   l <- append(l, quartile == "Q4" ~ scale_y_continuous(breaks = helper_y_pos("Q4"), labels = helper_Ref("Q4")))
+      # }
+      # # FIXME less than 4 scales
+      # p <- p + ggh4x::facetted_pos_scales(y = l)
   } else {
     p <- df |> 
       ggplot(aes(x = .data[[pos_col]], y = Ref, fill = score)) +
@@ -471,7 +481,7 @@ save_plot <- function(df, cov, e) {
     unlink(tmp)
   } else {
     output <- file.path(opts$options$output, paste0(e, ".pdf"))
-    ggsave(output, p, width = 33, height = 11)
+    ggsave(output, p, width = 35, height = 20)
   }
 }
 

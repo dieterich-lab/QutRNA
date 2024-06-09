@@ -33,15 +33,15 @@ rule cmalign_run:
   """
 
 
-rule ss_consensus_to_sprinzl:
+rule ss_consensus_add_sprinzl:
   input: "results/cmalign/align.stk",
-  output: "results/ss_consensus_to_sprinzl.tsv",
+  output: "results/ss_consensus_with_sprinzl.tsv",
   conda: "qutrna",
   resources:
     mem_mb=2000
-  log: "logs/ss/ss_consensus_to_sprinzl.log",
+  log: "logs/ss/ss_consensus_add_sprinzl.log",
   shell: """
-    python {workflow.basedir}/scripts/ss_consensus_to_sprinzl.py \
+    python {workflow.basedir}/scripts/ss_consensus_add_sprinzl.py \
         --output {output:q} \
         {input:q} \
         2> {log:q}
@@ -50,7 +50,7 @@ rule ss_consensus_to_sprinzl:
 
 rule ss_seq_to_sprinzl:
   input: align="results/cmalign/align.stk",
-         ss_to_sprinzl="results/ss_consensus_to_sprinzl.tsv",
+         ss_with_sprinzl="results/ss_consensus_with_sprinzl.tsv",
   output: "results/seq_to_sprinzl.tsv",
   conda: "qutrna",
   resources:
@@ -58,7 +58,7 @@ rule ss_seq_to_sprinzl:
   log: "logs/ss/seq_to_sprinzl.log",
   shell: """
     python {workflow.basedir}/scripts/seq_to_sprinzl.py \
-        --output {output:q} {input.ss_to_sprinzl:q} {input.align:q} \
+        --output {output:q} {input.ss_with_sprinzl:q} {input.align:q} \
         2> {log:q}
   """
 
