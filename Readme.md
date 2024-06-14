@@ -337,7 +337,7 @@ The output will be in `example/output`.
 
 # How to cite
 
-...
+Sun Y, Piechotta M, Naarmann-de Vries I, Dieterich C, Ehrenhofer-Murray AE. Detection of queuosine and queuosine precursors in tRNAs by direct RNA sequencing. Nucleic Acids Res. 2023 Nov 10;51(20):11197-11212. doi: 10.1093/nar/gkad826. PMID: 37811872; PMCID: PMC10639084.
 
 # License
 
