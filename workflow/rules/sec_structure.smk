@@ -34,7 +34,8 @@ rule cmalign_run:
 
 
 rule ss_consensus_add_sprinzl:
-  input: "results/cmalign/align.stk",
+  input: stk="results/cmalign/align.stk",
+         sprinzl=SPRINZL,
   output: "results/ss_consensus_with_sprinzl.tsv",
   conda: "qutrna",
   resources:
@@ -43,7 +44,8 @@ rule ss_consensus_add_sprinzl:
   shell: """
     python {workflow.basedir}/scripts/ss_consensus_add_sprinzl.py \
         --output {output:q} \
-        {input:q} \
+        --sprinzl {input.sprinzl:q} \
+        {input.stk:q} \
         2> {log:q}
   """
 
