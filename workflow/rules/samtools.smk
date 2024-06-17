@@ -1,3 +1,32 @@
+__SAMTOOLS_PROCESS_BAM_INPUT = {
+    "bam": join_path("data/bams/raw/{filename}.bam"),
+    "bai": join_path("data/bams/raw/{filename}.bam.bai"),
+  }
+if config["process"]["calmd"]:
+  d["ref"] = REF_FASTA
+
+rule samtools_process_bam:
+  input: __SAMTOOLS_PROCESS_BAM_INPUT,
+  output: join_path("results/data/bams/processed/{filename}.bam"),
+  params:
+    filter=config["process"]["filter"],
+    calmd=config["process"]["calmd"],
+  log: join_path("logs/samtools/processed/{filename}.log")
+  run:
+    if not params.filter and not params.calmd:
+      cmd = "ln -s {input.bam} {output}"
+      shell("( " + cmd + " > {output} ) 2> {log}")
+    else:
+      filter_cmd = "samtools view {params.filter} -b {input.bam}
+
+      cmds = [filter_cmd, ]
+      if params.calmd:
+        calmd_cmd = "samtools calmd -b /dev/stdin {input.ref}"
+        cmds.append(calmd_cmd)
+      cmd = " | ".join(cmds)
+      shell("( " + cmd + " > {output} ) 2> {log}")
+
+
 rule samtools_index:
   input: "{prefix}.sorted.bam",
   output: "{prefix}.sorted.bam.bai",
@@ -115,3 +144,9 @@ if config["parasail"]["lines"] > 0:
       ( samtools merge - {input.bams} | \
           samtools sort -o {output.bam:q} /dev/stdin && samtools index {output.bam:q} ) 2> {log:q}
     """
+
+
+rule samtools_coverage:
+  input: "{filename}.bam",
+  output: "{filename}_coverage.tsv"
+  shell: "samtools coverage {input} > {output}"
