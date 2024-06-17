@@ -84,7 +84,7 @@ rule samtools_merge:
     mem_mb=10000
   log: "logs/samtools/merge/{SAMPLE}.log",
   shell: """
-    samtools merge {output:q} {input:q} {input:q} 2> {log:q}
+    samtools merge {output:q} {input:q} 2> {log:q}
   """
 
 
