@@ -39,6 +39,9 @@ option_list <- list(
   make_option(c("--title"),
               type = "character",
               help = "Title of the plot"),
+  make_option(c("--coverages"),
+              type = "character",
+              help = "Path to file with coverages"),
   make_option(c("--hide_varm"),
               action = "store_true",
               default = FALSE,
@@ -95,18 +98,19 @@ opts <- parse_args(
   OptionParser(option_list = option_list),
   # args = c("--cond1=wt",
   #         "--cond2=NSUN2",
-  #         "--split=isoacceptor",
+  #         "--split=all",
   #         "--column=sprinzl",
-  #         "--show_introns",
+  # #        "--show_introns",
   # #          "--title=isodecoder: {amino_acid}-{anti_codon}",
   #         "--sort",
   # #         "--show_coverage",
   #         "--left=23",
+  #         "--coverages=/beegfs/prj/tRNA_Francesca_Tuorto/data/FT_tRNA_custom_2_biol_reps/merged_cov.txt",
   #         "--scale_by_cov",
   #         "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_mods_map.tsv",
   # #          #"--hide_mods",
   # #         "--crop",
-  #         "--flag=Homo_sapiens_tRNA-Tyr-GTA-5-4:2",
+  # #        "--flag=Homo_sapiens_tRNA-Tyr-GTA-5-4:2",
   #         "--output=~/tmp/plot_score",
   #        "--remove_prefix=Homo_sapiens_",
   # #          #"--remove_prefix=Mus_musculus_",
@@ -167,36 +171,66 @@ df[i, "amino_acid"] <- stringr::str_extract(df[i, "Ref"], ".*tRNA-([A-Za-z]+)-([
 df$anti_codon <- ""
 df[i, "anti_codon"] <- stringr::str_extract(df[i, "Ref"], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 2)
 
-cov <- df %>%
-  select(Ref, amino_acid, anti_codon, starts_with("coverage_")) %>%
-  group_by(Ref, amino_acid, anti_codon) %>%
-  summarise_all(median) %>%
-  ungroup() %>%
-  tidyr::pivot_longer(starts_with("coverage_"),
-                      names_to = "condition",
-                      values_to = "coverage") %>%
-  mutate(replicate = gsub("^coverage_\\d+_", "", condition),
-                condition = gsub("^coverage_|_\\d+$", "", condition),
-                condition = case_match(
-                  condition,
-                  "1" ~ opts$options$cond1,
-                  "2" ~ opts$options$cond2,
-                ))
-cov_cond1 <- cov |>
-  select(Ref, condition, coverage) |>
-  filter(condition == opts$options$cond1) |>
-  group_by(Ref, condition) |>
-  summarise(mean_coverage1 = mean(coverage))
+if (is.null(opts$options$coverages)) {
+  cov <- df %>%
+    select(Ref, amino_acid, anti_codon, starts_with("coverage_")) %>%
+    group_by(Ref, amino_acid, anti_codon) %>%
+    summarise_all(median) %>%
+    ungroup() %>%
+    tidyr::pivot_longer(starts_with("coverage_"),
+                        names_to = "condition",
+                        values_to = "coverage") %>%
+    mutate(replicate = gsub("^coverage_\\d+_", "", condition),
+                  condition = gsub("^coverage_|_\\d+$", "", condition),
+                  condition = case_match(
+                    condition,
+                    "1" ~ opts$options$cond1,
+                    "2" ~ opts$options$cond2,
+                  ))
 
-df <- df |>
-  left_join(cov_cond1)
+  cov_cond1 <- cov |>
+    select(Ref, condition, coverage) |>
+    filter(condition == opts$options$cond1) |>
+    group_by(Ref, condition) |>
+    summarise(coverage1 = mean(coverage))
 
-cov_summary <- cov %>%
-  select(Ref, coverage) %>%
-  summarise(median_coverage = median(coverage),
-            total_coverage = sum(coverage),
-            expression = median_coverage,
-            .by = Ref)
+  df <- df |>
+    left_join(cov_cond1, by = join_by(Ref))
+
+  cov_summary <- cov %>%
+    select(Ref, coverage) %>%
+    summarise(total_coverage = sum(coverage),
+              expression = median(coverage),
+              .by = Ref)
+} else {
+  cov <- read.table(opts$options$coverages, header = TRUE, sep = "\t") |>
+    dplyr::rename(Ref = "rname", condition = "sample", coverage = "numreads") |>
+    mutate(replicate = gsub(".+_(\\d+)$", "\\1", condition),
+           condition = gsub("_\\d+$", "", condition)) |>
+    filter(condition %in% c(opts$options$cond1, opts$options$cond2),
+           Ref %in% df$Ref)
+
+  i <- grepl("tRNA", cov$Ref)
+  cov$amino_acid <- ""
+  cov[i, "amino_acid"] <- stringr::str_extract(cov[i, "Ref"], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 1)
+  cov$anti_codon <- ""
+  cov[i, "anti_codon"] <- stringr::str_extract(cov[i, "Ref"], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 2)
+
+  cov_cond1 <- cov |>
+    filter(condition == opts$options$cond1) |>
+    select(Ref, condition, coverage) |>
+    group_by(Ref, condition) |>
+    summarise(coverage1 = mean(coverage))
+
+  df <- df |>
+    left_join(cov_cond1, by = join_by(Ref))
+
+  cov_summary <- cov %>%
+    select(Ref, coverage) %>%
+    summarise(total_coverage = sum(coverage),
+              expression = median(coverage),
+              .by = Ref)
+}
 
 df <- df %>%
   full_join(cov_summary, by = join_by(Ref))
@@ -213,7 +247,7 @@ df[["ref_base"]] <- substr(df[["Kmer"]], 3, 3)
 
 df$score <- df[, opts$options$score]
 df$score[df$score < 0] <- 0
-cols <- c("Ref", pos_col, "anti_codon", "amino_acid", "score", "mod", "Pos3", "ref_base", "mean_coverage1", "total_coverage", "median_coverage", "expression", "flag")
+cols <- c("Ref", pos_col, "anti_codon", "amino_acid", "score", "mod", "Pos3", "ref_base", "coverage1", "total_coverage", "expression", "flag")
 if (!is.null(opts$options$modmap)) {
   modmap <- read.table(opts$options$modmap, header = TRUE, sep = "\t", quote = "", comment.char = "")
   stopifnot(length(modmap$shortname) == length(unique(modmap$shortname)))
@@ -230,14 +264,14 @@ add_missing <- function(df) {
     unique(e[!is.na(e)])
   }
 
-  # TODO test
-  if ("mod" %in% colnames(df)) {
-    df$mod <- as.character(df$mod)
+  df <- tidyr::complete(df, Ref, .data[[pos_col]]) %>%
+    mutate(expression = helper(expression), .by = Ref)
+  i <- is.na(df$mod)
+  if (any(i)) {
+    df[i, "mod"] <- ""
   }
 
-  tidyr::complete(df, Ref, .data[[pos_col]]) %>%
-    mutate(expression = helper(expression), .by = Ref) %>%
-    tidyr::replace_na(list(mod = ""))
+  df
 }
 
 if (!is.null(opts$options$positions)) {
@@ -252,7 +286,7 @@ plot_table <- function(df) {
       filter(short_name != abbrev) |>
       distinct() |>
       select(abbrev, short_name) |>
-      rename(`RNAMods\ncode` = abbrev, `Mod.` = short_name)
+      dplyr::rename(`RNAMods\ncode` = abbrev, `Mod.` = short_name)
 
   if (nrow(df) > 0) {
     return(gridExtra::tableGrob(df, rows = NULL))
@@ -266,23 +300,25 @@ plot_main <- function(df) {
 
   if (opts$options$scale_by_cov) {
     # s <- "median cov. Q1\n(1st. quartile)"
-    
+
     heights <- df |>
-      distinct(Ref, mean_coverage1) |>
-      filter(!is.na(mean_coverage1)) |>
+      distinct(Ref, coverage1) |>
+      filter(!is.na(coverage1)) |>
       #mutate(quartile = paste0("Q", ntile(median_coverage, 4))) |>
       #group_by(quartile) |>
       arrange(Ref) |>
-      mutate(height = 10 * mean_coverage1 / sum(mean_coverage1, na.rm = TRUE),
+      mutate(height = 10 * coverage1 / sum(coverage1, na.rm = TRUE),
              y_end = cumsum(height),
              y_pos = y_end - height / 2) |>
       #ungroup() |>
-      select(-mean_coverage1)# |>
+      select(-coverage1)# |>
       #mutate(
       #  quartile = case_when(
       #    quartile == "Q1" ~ s,
       #    .default = quartile),
       #  quartile = factor(quartile, levels = c(paste0("Q", 4:2), s)))
+    
+    browser()
 
     df <- df |>
       left_join(heights, by = join_by(Ref))
