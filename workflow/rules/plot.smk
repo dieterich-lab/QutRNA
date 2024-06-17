@@ -2,7 +2,7 @@
 # Plot JACUSA2 score: Mis+Del+Ins
 ################################################################################
 
-def _plot_heatmap_opts(wildcards):
+def _plot_heatmap_opts(wildcards, input):
   opts = []
 
   plots = {plot["id"]: plot for plot in config["plots"]}
@@ -33,11 +33,23 @@ def _plot_heatmap_opts(wildcards):
     if wildcards.COND1 == contrast["cond1"] and wildcards.COND2 == contrast["cond2"] and "flag" in contrast:
       opts.append("--flag=" + ",".join(contrast["flag"]))
 
+  if "coverages" in pep.config["qutrna"]:
+    opts.append("--coverages=" + input.coverages)
+
   return " ".join(opts)
 
 
+# HOTFIX
+def _plot_heatmap_input(wildcards):
+  d = {"scores": "results/jacusa2/cond1~{COND1}/cond2~{COND2}/" + SCORES,}
+  if "coverages" in pep.config["qutrna"]:
+    d["coverages"] = pep.config["qutrna"]["coverages"]
+
+  return d
+
+
 rule plot_heatmap:
-  input: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/" + SCORES,
+  input: unpack(_plot_heatmap_input)
   output: directory("results/plots/cond1~{COND1}/cond2~{COND2}/{plot_id}"),
   conda: "qutrna",
   resources:
@@ -49,6 +61,6 @@ rule plot_heatmap:
       Rscript {workflow.basedir}/scripts/plot_score.R \
           --cond1 {wildcards.COND1:q} \
           --cond2 {wildcards.COND2:q} \
-          --output {output:q} {input:q} \
+          --output {output:q} {input.scores:q} \
           {params.opts} ) 2> {log:q}
   """
