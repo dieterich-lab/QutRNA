@@ -36,6 +36,9 @@ def _plot_heatmap_opts(wildcards, input):
   if "coverages" in pep.config["qutrna"]:
     opts.append("--coverages=" + input.coverages)
 
+  if "sprinzl" in pep.config["qutrna"]:
+    opts.append("--sprinzl=" + input.sprinzl)
+
   return " ".join(opts)
 
 
@@ -44,6 +47,9 @@ def _plot_heatmap_input(wildcards):
   d = {"scores": "results/jacusa2/cond1~{COND1}/cond2~{COND2}/" + SCORES,}
   if "coverages" in pep.config["qutrna"]:
     d["coverages"] = pep.config["qutrna"]["coverages"]
+
+  if "sprinzl" in pep.config["qutrna"]:
+    d["sprinzl"] = SPRINZL
 
   return d
 

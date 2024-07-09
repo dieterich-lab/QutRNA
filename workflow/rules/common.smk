@@ -2,6 +2,7 @@ REF_FASTA = "data/ref.fasta"
 REF_NO_LINKER_FASTA = "results/data/no_linker.fasta"
 REF_FILTERED_TRNAS_FASTA = "results/data/filtered_trnas.fasta"
 CM = "data/cm.stk"
+SPRINZL = "data/sprinzl.txt"
 MODS = "data/mods.tsv"
 MOD_ABBREVS = "data/mod_abbrevs.tsv"
 
@@ -64,6 +65,10 @@ if pep.config["qutrna"]["coords"] == "sprinzl":
                  pep.config["qutrna"]["cm"],
                  CM,
                  config["include"]["cm"])
+  create_include("sprinzl",
+                 pep.config["qutrna"]["sprinzl"],
+                 SPRINZL,
+                 "cp")
 
 
 if "mods" in pep.config["qutrna"]:

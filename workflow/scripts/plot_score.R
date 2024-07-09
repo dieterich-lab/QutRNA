@@ -42,6 +42,9 @@ option_list <- list(
   make_option(c("--coverages"),
               type = "character",
               help = "Path to file with coverages"),
+  make_option(c("--sprinzl"),
+              type = "character",
+              help = "Path to sprinzl file"),
   make_option(c("--hide_varm"),
               action = "store_true",
               default = FALSE,
@@ -131,10 +134,11 @@ pos_col <- opts$options$column
 if (pos_col == "sprinzl") {
   df <- df[!df[[pos_col]] %in% c("-", "."), ]
 
-  coords <- c(1:17, "17a", 18:20, "20a", "20b", 21:37,
-              paste0("i", 1:24),
-              38:45,
-              paste0("e", c(11:17, 1:5, 27:21)), 46:76)
+  #coords <- c(1:17, "17a", 18:20, "20a", "20b", 21:37,
+  #            paste0("i", 1:24),
+  #            38:45,
+  #            paste0("e", c(11:17, 1:5, 27:21)), 46:76)
+  coords <- read.table(opts$options$sprinzl, header = FALSE)$V1
 
   if (opts$options$hide_varm) {
     i <- !grepl("e[0-9]+", df[[pos_col]])
