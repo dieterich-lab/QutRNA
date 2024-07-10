@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-options(error = traceback)
+#options(error = traceback)
 # Plot JACUSA2 score and existing modification info as a heatmap)
 
 library(optparse)
@@ -219,6 +219,11 @@ df <- select(df, tidyr::all_of(cols))
 add_missing <- function(df) {
   helper <- function(e) {
     unique(e[!is.na(e)])
+  }
+
+  # TODO test
+  if ("mod" %in% colnames(df)) {
+    df$mod <- as.character(df$mod)
   }
 
   tidyr::complete(df, Ref, .data[[pos_col]]) %>%
@@ -447,7 +452,7 @@ save_plot <- function(df, cov, e) {
     df <- tmp$df
     cov <- tmp$cov
   }
-  
+
   if (opts$options$show_coverage) {
     p <- plot_complex(df, cov)
   } else {

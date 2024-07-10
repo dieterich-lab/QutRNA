@@ -36,6 +36,8 @@ properties:
             description: Output directory
           cm:
             type: string
+          seq_to_sprinzl:
+            type: string
           ref_fasta:
             type: string
           ref_fasta_prefix:
@@ -87,7 +89,7 @@ properties:
           - ref_fasta
           - linker5
           - linker3
-          - cm
+            # TODO - cm or sprinzl mapping
     required:
       - qutrna
 required:

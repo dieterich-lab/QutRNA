@@ -3,6 +3,7 @@ REF_NO_LINKER_FASTA = "results/data/no_linker.fasta"
 REF_FILTERED_TRNAS_FASTA = "results/data/filtered_trnas.fasta"
 CM = "data/cm.stk"
 SPRINZL = "data/sprinzl.txt"
+SEQ_TO_SPRINZL = "results/seq_to_sprinzl_filtered.tsv"
 MODS = "data/mods.tsv"
 MOD_ABBREVS = "data/mod_abbrevs.tsv"
 
@@ -61,10 +62,20 @@ create_include("ref_fasta",
 
 
 if pep.config["qutrna"]["coords"] == "sprinzl":
-  create_include("cm",
-                 pep.config["qutrna"]["cm"],
-                 CM,
-                 config["include"]["cm"])
+  if "cm" in pep.config["qutrna"]:
+    create_include("cm",
+                   pep.config["qutrna"]["cm"],
+                   CM,
+                   config["include"]["cm"])
+  elif "seq_to_sprinzl" in pep.config["qutrna"]:
+    SEQ_TO_SPRINZL = "data/seq_to_sprinzl.tsv"
+    create_include("seq_to_sprinzl",
+                   pep.config["qutrna"]["seq_to_sprinzl"],
+                   SEQ_TO_SPRINZL,
+                   config["include"].get("seq_to_sprinzl", True))
+  else:
+    raise Exception("Must provide other 'cm' or 'seq_to_sprinzl'!")
+
   create_include("sprinzl",
                  pep.config["qutrna"]["sprinzl"],
                  SPRINZL,
