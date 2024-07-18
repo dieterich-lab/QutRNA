@@ -52,7 +52,7 @@ conda env create -n qutrna -f <LOCAL-REPOSITORY>/conda.yaml
 conda activate qutrna
 ```
 
-If removing white space from final plots is desired, a workking TEX environment is required. Unfortunatelly, the TEX environment available via conda is not applicable.
+If removing white space from final plots is desired, a working TEX environment is required. Unfortunatelly, the TEX environment available via conda is not applicable.
 
 ### parasail
 
@@ -84,7 +84,7 @@ The workflow is implemented with [snakemake](https://github.com/snakemake/snakem
 * RNA modification detection with [JACUSA2](https://github.com/dieterich-lab/JACUSA2),
 * and visualization in Sprinzl coordinates.
 
-The workflow can be configered with YAML files:
+The workflow can be configured with YAML files:
 * `analysis.yaml` : analysis specific config, e.g.: parameters of tools.
 * `data.yaml` : data specific config, e.g.: reference sequence, sample description.
 
@@ -104,7 +104,7 @@ params:
 ##### parasail
 
 [parasail](https://github.com/jeffdaily/parasail) is used to perform fast local alignment of reads against reference sequences of tRNAs. 
-The following defaults values for parasail are set in QutRNA and can be overwritten in a custom `analysis.yaml`: 
+The following default values for parasail are set in QutRNA and can be overwritten in a custom `analysis.yaml`: 
 
 ```yaml
 [...]
@@ -120,7 +120,8 @@ parasail:
 `batch_size` defines the batch size of reads, the parameter influences main memory requirements (check [parasail](https://github.com/jeffdaily/parasail) for details).
 `threads` sets the number of parallel threads to use. Adjust to your local computing machine.
 
-If `lines` is > 0, each FASTQ will be split in files with the number of lines. Make sure that the number is divisible by 4! If splitting input is desired, choose depending on the number of raw reads and pick a reasonably high number of lines (> 10000).
+If `lines` is > 0, each FASTQ will be split in files with the number of lines.
+Make sure that the number is divisible by 4! If splitting input is desired, choose depending on the number of raw reads and pick a reasonably high number of lines (> 10000).
 
 
 ##### JACUSA2
@@ -146,7 +147,7 @@ jacusa2:
 
 ##### cmalign
 
-[cmalign] is used to perform secondary structure alignment of tRNAs which is required to for Sprinzl coordinates.
+[cmalign] is used to perform secondary structure alignment of tRNAs which is required for Sprinzl coordinates.
 
 ```yaml
 [...]
@@ -169,10 +170,10 @@ Plots can be added to `analysis.yaml` with custom plot options:
 ```yaml
 [...]
 plots:
-  - id: <PLOT-ID>                 # [Required] name of the directory for the plot, in results/plots/<PLOT-ID>
-    trnas: isoacceptor|isodecoder # [Required] How to group tRNA in the output
-    opts: "--sort"                # (Optional) Command line options for plot_score.R
-                                  #            Here: sort tRNAs by median read coverage.
+  - id: <PLOT-ID>                     # [Required] name of the directory for the plot, in results/plots/<PLOT-ID>
+    trnas: isoacceptor|isodecoder|all # [Required] How to group tRNA in the output
+    opts: "--sort"                    # (Optional) Command line options for plot_score.R
+                                      #            Here: sort tRNAs by median read coverage.
 [...]
 ```
 
@@ -182,7 +183,7 @@ The script `workflow/scripts/plot_score.R` supports the following options that c
 
 --hide_varm           Hide variable arm
 --hide_mods           Hide RNA modification annotation, if available.
-                      
+
 --show_introns        Show introns
 --show_coverage       Show a barplot with median read coverage for each tRNA
 
@@ -215,7 +216,12 @@ sample_table: sample_table.tsv      # [Required] Filename of sample description
 
 qutrna:
   output_dir: <OUTPUT-DIR>          # [Required] Where QutRNA output will be written to
-  cm: <PATH-TO-CM>                  # [Required] Path to custom covariance model 
+
+  sprinzl: <PATH-TO-SPRINZL>        # [Required] Path to Sprinzl coordinates of cloverleaf
+  cm: <PATH-TO-CM>                  # [Required] Path to custom covariance model
+  # OR
+  seq_to_sprinzl: <PATH-SEQ-TO-SPRINZL>  # [Required] Path to sequence to sprinzl coordinate mappings
+
   ref_fasta: <PATH-TO-REF-FASTA>    # [Required] Path to reference sequence
   ref_fasta_prefix: "Homo_sapiens_" # (Optional) Prefix to remove from sequence ID in visualization
   coords: sprinzl                   # [Required] Possible values are 'seq' or 'sprinzl'.
@@ -233,6 +239,16 @@ qutrna:
     - cond1: <CONDITION1>           # must match to condition in sample_table.tsv
       cond2: <CONDITION2>           # must match to condition in sample_table.tsv
 ```
+
+##### Coordinates system
+
+QutRNA supports sequence-specific, and Sprinzl coordinates for the visualization of RNA modifications.
+The sequence-specific coordinate system does not require additional files. Setting `coords: seq` in a `data.yaml` file will choose raw sequence coordinates.
+On the other hand, the flexibility of QutRNA allows you to set `coords: Sprinzl` for visualization in Sprinzl coordinates. Sprinzl coordinates can be obtained in multiple ways, either by providing a direct mapping file via `seq_to_sprinzl: <PATH-SEQ-TO-SPRINZL>` or by secondary structure alignment against a covariance model `cm: <PATH-TO-CM>`. This flexibility empowers you to choose the method that best suits your needs, with an annotation file `sprinzl: <PATH-TO-SPRINZL>` being required in either case.
+It is crucial to obtain covariance models for the organism and tRNAs studied. These models can be acquired from https://github.com/UCSC-LoweLab/tRNAscan-SE/tree/master/lib/models.
+For eukaryotic nuclear tRNAs, we used the following covariance model [TRNAinf-euk.cm](https://github.com/UCSC-LoweLab/tRAX/blob/master/TRNAinf-euk.cm).
+For mitochondrial tRNAs, we provide a custom sequence to Sprinzl mapping [mt-tRNA-TODO](https://github.com/dieterich-lab/QutRNA/blob/main/data/Hsapi38/human_modomics_sprinzl.tsv) that is rooted in secondary structures deduced in [https://www.nature.com/articles/s41467-020-18068-6](https://www.nature.com/articles/s41467-020-18068-6). Finally, an annotation file of the Sprinzl coordinates is required `sprinzl: <PATH-SPRINZL>`. Choose A for nuclear or B for mt-tRNAs.
+
 
 #### Sample table
 
