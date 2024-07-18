@@ -62,6 +62,10 @@ create_include("ref_fasta",
 
 
 if pep.config["qutrna"]["coords"] == "sprinzl":
+  create_include("sprinzl",
+                 pep.config["qutrna"]["sprinzl"],
+                 SPRINZL,
+                 config["include"].get("sprinzl", True))
   if "cm" in pep.config["qutrna"]:
     create_include("cm",
                    pep.config["qutrna"]["cm"],

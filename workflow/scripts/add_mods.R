@@ -32,6 +32,7 @@ result <- read.table(opts$args, header = TRUE)
 by <- dplyr::join_by(Ref == trna, Pos3 == pos)
 if (opts$options$sprinzl) {
   by <- dplyr::join_by(Ref == trna, sprinzl == pos)
+  mods$pos = as.character(mods$pos)
 }
 df <- dplyr::left_join(result, mods, by = by)
 

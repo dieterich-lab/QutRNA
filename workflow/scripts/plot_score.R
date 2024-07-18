@@ -82,7 +82,7 @@ option_list <- list(
               help = "File mapping of modomics short name to abbrevations"),
   make_option(c("--split"),
               type = "character",
-              help = "Split by: isodecoder, isoacceptor"),
+              help = "Split by: isodecoder, isoacceptor, all"),
   make_option(c("--remove_prefix"),
               type = "character",
               default = "",
@@ -321,8 +321,6 @@ plot_main <- function(df) {
       #    quartile == "Q1" ~ s,
       #    .default = quartile),
       #  quartile = factor(quartile, levels = c(paste0("Q", 4:2), s)))
-    
-    browser()
 
     df <- df |>
       left_join(heights, by = join_by(Ref))
@@ -343,8 +341,9 @@ plot_main <- function(df) {
       #facet_grid(quartile ~ ., scales = "free_y", space = "free_y") +
       geom_tile(aes(height = height), width = 1, colour = "white") +
       # ylab("mean cov.") + 
-      scale_y_continuous(breaks = heights$y_pos, labels = heights$Ref)
-      
+      scale_y_continuous(breaks = heights$y_pos, labels = heights$Ref) +
+      ylab("")
+
       # q = unique(heights$quartile)
       # n = length(q)
       # 
