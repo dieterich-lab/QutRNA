@@ -2,6 +2,11 @@
 
 # Process JACUSA2 scores and add additional data.
 library(magrittr)
+library(GenomicRanges)
+
+# TODO move this part to JACUSA2helper
+# process scores
+# add kmer in JACUS2Ahelper
 
 WIDTH <- 5
 
@@ -9,6 +14,10 @@ option_list <- list(
   optparse::make_option(c("-f", "--fasta"),
                         type = "character",
                         help = "FASTA sequence"),
+  optparse::make_option(c("-n", "--normalize_score"),
+                        action = "store_true",
+                        help = "Normalize score with subsampled data",
+                        default = FALSE),
   optparse::make_option(c("-o", "--output"),
                         type = "character",
                         help = "Output")
@@ -21,45 +30,76 @@ opts <- optparse::parse_args(
   positional_arguments = TRUE
 )
 
+
 stopifnot(!is.null(opts$options$fasta))
 stopifnot(!is.null(opts$options$output))
 stopifnot(length(opts$args) == 1)
-
 fasta <- Biostrings::readDNAStringSet(opts$options$fasta)
 
-result <- JACUSA2helper::read_result(opts$args, unpack = TRUE) %>%
-  IRanges::shift(-1) %>%
-  plyranges::select(bases, score, ins, insertion_score, del, deletion_score, ref) %>%
-  plyranges::mutate(
-    Ref = seqnames,
-    Pos3 = start)
+# TODO normalize by sampled scores
+
+common_cols <- c("Ref", "Pos3", "Mis", "Mis+Del+Ins", "Kmer")
+if (opts$options$normalize_score) {
+  result <- JACUSA2helper::read_result(opts$args, unpack = TRUE) %>%
+    IRanges::shift(-1) %>%
+    plyranges::select(bases, score,
+                      score_subsampled,
+                      ins, insertion_score, insertion_score_subsampled,
+                      del, deletion_score, deletions_score_subsampled,
+                      ref) |>
+    plyranges::mutate(Ref = seqnames,
+                      Pos3 = start,
+                      score_subsampled =
+                        strsplit(score_subsampled,
+                                 sep = ",") |> unlist() |> tidyr::replace_na(0),
+                      insertion_score_subsampled =
+                        strsplit(insertion_score_subsampled,
+                                 sep = ",") |> unlist() |> tidyr::replace_na(0),
+                      deletion_score_subsampled =
+                        strsplit(deletions_score_subsampled,
+                                 sep = ",") |> unlist() |> tidyr::replace_na(0))
+  common_cols <- c(common_cols, MisDelIns_subsampled)
+} else {
+  result <- JACUSA2helper::read_result(opts$args, unpack = TRUE) %>%
+    IRanges::shift(-1) %>%
+    plyranges::select(bases, score,
+                      ins, insertion_score,
+                      del, deletion_score, ref) %>%
+    plyranges::mutate(Ref = seqnames,
+                      Pos3 = start)
+}
 
 GenomeInfoDb::seqlevels(result) <- GenomeInfoDb::seqlevels(fasta)
-GenomicRanges::seqinfo(result) <- GenomicRanges::seqinfo(fasta)
+seqinfo(result) <- seqinfo(fasta)
 
-GenomicRanges::mcols(result, level = "within")[, "Mis"] <- GenomicRanges::mcols(result, level = "within")[, "score"]
-GenomicRanges::mcols(result, level = "within")[, "Del"] <- GenomicRanges::mcols(result, level = "within")[, "deletion_score"]
-GenomicRanges::mcols(result, level = "within")[, "Ins"] <- GenomicRanges::mcols(result, level = "within")[, "insertion_score"]
+mcols(result, level = "within")[, "Mis"] <-
+  mcols(result, level = "within")[, "score"]
+mcols(result, level = "within")[, "Del"] <-
+  mcols(result, level = "within")[, "deletion_score"]
+mcols(result, level = "within")[, "Ins"] <-
+  mcols(result, level = "within")[, "insertion_score"]
 
 result <- result %>%
   plyranges::mutate(
-    Mis = replace(Mis, is.na(Mis), 0),
-    Del = replace(Del, is.na(Del), 0),
-    Ins = replace(Ins, is.na(Ins), 0),
+    Mis = replace_na(Mis, 0),
+    Del = replace_na(Del, 0),
+    Ins = replace_na(Ins, 0),
   )
 
-# add context scores
+# add kmer TODO add to JACUSA2helper
 suppressWarnings({
-  result <- result %>%
-    dplyr::mutate(MisDelIns = Mis + Del + Ins) %>%
-    IRanges::resize(width = WIDTH, fix = "center") %>%
+  result <- result |>
+    dplyr::mutate(MisDelIns = Mis + Del + Ins) |>
+    IRanges::resize(width = WIDTH, fix = "center") |>
     IRanges::shift(1) %>%
-    plyranges::filter(start > 0 & end < GenomeInfoDb::seqlengths(.)[as.character(GenomeInfoDb::seqnames(.))]) %>%
-    plyranges::mutate(Kmer = BSgenome::getSeq(fasta, .) %>% as.character()) %>%
-    IRanges::shift(-1) %>%
+    plyranges::filter(start > 0 &
+                      end < GenomeInfoDb::seqlengths(.)[as.character(GenomeInfoDb::seqnames(.))]) %>%
+    plyranges::mutate(Kmer = BSgenome::getSeq(fasta, .) |> as.character()) |>
+    IRanges::shift(-1) |>
     IRanges::resize(width = IRanges::width(.) + 1)
 })
 
+# TODO move to JACUSA2
 non_ref <- function(bases, ref) {
   stopifnot(length(ref) ==  nrow(bases))
   n <- length(ref)
@@ -105,8 +145,8 @@ bases <- bases_to_cols(result$bases, result$ref)
 
 indel_to_cols <- function(df, prefix) {
   l <- list()
-  for (cond in c(1:ncol(df))) {
-    for (repl in c(1:ncol(df[[paste0("cond", cond)]]))) {
+  for (cond in seq_len(ncol(df))) {
+    for (repl in seq_len(ncol(df[[paste0("cond", cond)]]))) {
       k <- paste(prefix, "rate", cond, repl, sep = "_")
       reads <-  df[[paste0("cond", cond)]][[paste0("rep", repl)]]$reads
       coverage <-  df[[paste0("cond", cond)]][[paste0("rep", repl)]]$coverage
@@ -133,6 +173,7 @@ df <- dplyr::bind_cols(
   del
 )
 
+# TODO move to JACUSA2
 # final polish
 GenomicRanges::mcols(result) <- df
 df <- GenomicRanges::mcols(result) %>%
@@ -150,9 +191,6 @@ df <- GenomicRanges::mcols(result) %>%
   dplyr::rename(`Mis+Del+Ins` = MisDelIns)
 
 # good to go to files
-common_cols <- c("Ref", "Pos3")
-common_cols <- c(common_cols, "Mis", "Mis+Del+Ins",
-                 "Kmer")
 
 df %>% dplyr::select(dplyr::all_of(common_cols),
                      dplyr::starts_with("coverage_"),
