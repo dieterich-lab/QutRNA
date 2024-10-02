@@ -80,12 +80,6 @@ if pep.config["qutrna"]["coords"] == "sprinzl":
   else:
     raise Exception("Must provide other 'cm' or 'seq_to_sprinzl'!")
 
-  create_include("sprinzl",
-                 pep.config["qutrna"]["sprinzl"],
-                 SPRINZL,
-                 "cp")
-
-
 if "mods" in pep.config["qutrna"]:
   create_include("mods",
                  pep.config["qutrna"]["mods"]["file"],

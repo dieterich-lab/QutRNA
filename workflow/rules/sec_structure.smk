@@ -16,7 +16,7 @@ rule ss_transform:
   """
 
 
-if "CM" in pep.config["qutrna"]:
+if "cm" in pep.config["qutrna"]:
   rule cmalign_run:
     input: cm=CM,
            fasta=REF_FILTERED_TRNAS_FASTA,
@@ -37,7 +37,7 @@ if "CM" in pep.config["qutrna"]:
   rule ss_consensus_add_sprinzl:
     input: stk="results/cmalign/align.stk",
            sprinzl=SPRINZL,
-    output: "results/ss_consensus_with_sprinzl.tsv",
+    output: "results/ss_consensus_to_sprinzl.tsv",
     conda: "qutrna",
     resources:
       mem_mb=2000

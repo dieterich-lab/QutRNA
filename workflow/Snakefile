@@ -3,11 +3,6 @@ import pandas as pd
 from snakemake.utils import validate
 
 VERSION = "2.0.1-DEV"
-# TODO
-# * add an option for picking the score to add_jacusa2 scores
-# * addapt color coding to what yun did
-# * 
-
 
 validate(config, "schemas/config.yaml")
 pepfile: config["pepfile"]

@@ -37,7 +37,7 @@ rule jacusa2_run:
           bams2=lambda wildcards, input: ",".join(input.bam2),
   threads: config["jacusa2"]["threads"],
   shell: """
-    {params.jar:q} call-2 \
+    {params.jar} call-2 \
         {params.opts} \
         -c {params.min_cov} \
         -p {threads} \
@@ -51,6 +51,7 @@ rule jacusa2_run:
 ################################################################################
 # Process JACUSA2 scores
 ################################################################################
+# FIXME make -n by options
 rule jacusa2_add_scores:
   input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/JACUSA2.out",
          fasta=REF_FASTA,
@@ -60,7 +61,7 @@ rule jacusa2_add_scores:
     mem_mb=10000
   log: "logs/jacusa2/add_scores/cond1~{COND1}/cond2~{COND2}.log",
   shell: """
-    Rscript {workflow.basedir:q}/scripts/add_scores.R -f {input.fasta:q} -o {output:q} {input.jacusa2:q} 2> {log:q}
+    Rscript {workflow.basedir:q}/scripts/add_scores.R -n -f {input.fasta:q} -o {output:q} {input.jacusa2:q} 2> {log:q}
   """
 
 

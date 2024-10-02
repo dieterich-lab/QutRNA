@@ -24,10 +24,10 @@ stopifnot(!is.null(opts$options$output))
 stopifnot(!is.null(opts$options$mods))
 stopifnot(length(opts$args) == 1)
 
-mods <- data.table::fread(opts$options$mods, header = TRUE) %>%
+mods <- data.table::fread(opts$options$mods, header = TRUE, sep = "\t") %>%
   as.data.frame()
 
-result <- read.table(opts$args, header = TRUE)
+result <- read.table(opts$args, header = TRUE, sep = "\t")
 
 by <- dplyr::join_by(Ref == trna, Pos3 == pos)
 if (opts$options$sprinzl) {
