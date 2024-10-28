@@ -24,10 +24,7 @@ def target_alignment():
     conds.add(cond["cond2"])
   conds = list(conds)
 
-  tbl = pep.sample_table
-  tbl = tbl.set_index("condition")
-  tbl = tbl.loc[conds].explode(["base_calling", READS])
-
+  tbl = TBL.set_index("condition")
   targets = []
   for row in tbl.itertuples():
     targets.extend(

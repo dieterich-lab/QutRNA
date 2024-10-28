@@ -93,8 +93,7 @@ rule samtools_filter_by_cutoff:
 
 def _samtools_merge_input(wildcards):
   fnames = []
-  tbl = pep.sample_table.explode(["base_calling", READS])
-  for row in tbl.loc[[wildcards.SAMPLE]].itertuples():
+  for row in TBL.loc[[wildcards.SAMPLE]].itertuples():
     if READS == "fastq":
         fname = f"results/bams/final/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
     elif READS == "bam":

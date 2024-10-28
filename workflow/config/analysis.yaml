@@ -1,0 +1,38 @@
+params:
+  precision: 0.95 # Calibrate alignment score offset with precision
+  min_aln_score: 10 # Minimum alignment score to consider for calibration
+
+parasail:
+  opts: # overwrite default parametes to parasail. Check "schema/config.yaml" (parasail["opts"]) for default values
+  threads: # number of threads to use by parasail
+  lines: # split input FASTA into number of lines. MAKE sure thisdivisble by 4!
+
+jacusa2:
+  min_cov: # require min cov(arge) per BAM to consider pileup by JACUSA2
+  opts: # overwrite default parametes to JACUSA2. Check "schema/config.yaml" (jacusa2["opts"]) for default values
+  threads: # number of threads to use by JACUSA2
+
+plots:
+  # default plots
+  - id: isodecoder # unique id for plots. Will be available under results/plots/{id}
+    trnas: isodecoder # how to group tRNAs in plots: isodecoder, isoacceptor
+    opts: # CLI options to scripts/plot_score.R
+    position: # restrict plots to positions, e.g. [34,35,36]
+  - id: isoacceptor
+    trnas: isoacceptor
+  # extended plots
+  - id: isodecoder_extended
+    trnas: isodecoder
+    opts: "--sort --show_introns --show_coverage --title 'isodecoder: {amino_acid}-{anti_codon}'"
+  - id: isoacceptor_extended
+    trnas: isoacceptor
+    opts: "--sort --show_introns --show_coverage --title 'isoacceptor: {amino_acid}'"
+
+include: # determines how data is included in the workflow: link or copy. Check schemas/config (include) for default values.
+  ref_fasta: # copy or link reference fasta.
+  cm: # copy or link cm file.
+  mods:
+    file: # copy or link modification file.
+    abbrevs: # copy or link abbrevs file.
+  fastq: # copy or link FASTQ files.
+  bam: # copy or link BAM files.

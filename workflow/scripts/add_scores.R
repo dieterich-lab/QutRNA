@@ -63,6 +63,7 @@ cond_repl <- c(names(result$bases$cond1) %>% gsub("rep", "", .) %>% paste0("1", 
                names(result$bases$cond2) %>% gsub("rep", "", .) %>% paste0("2", .))
 
 add_value <- function(result, key, label) {
+  browser()
   if (key %in% colnames(mcols(result))) {
     values <- lapply(data.table::tstrsplit(mcols(result)[, key], split = ",", fixed = TRUE), as.numeric) %>%
         as.data.frame()
