@@ -1,31 +1,25 @@
-# FIXME
-#__SAMTOOLS_PROCESS_BAM_INPUT = {
-#    "bam": "data/bams/raw/{filename}.bam",
-#    "bai": "data/bams/raw/{filename}.bam.bai",
-#  }
-#if config["process"]["calmd"]:
-#  d["ref"] = REF_FASTA
-#
-#rule samtools_process_bam:
-#  input: __SAMTOOLS_PROCESS_BAM_INPUT,
-#  output: "results/data/bams/processed/{filename}.bam",
-#  params:
-#    filter=config["process"]["filter"],
-#    calmd=config["process"]["calmd"],
-#  log: join_path("logs/samtools/processed/{filename}.log")
-#  run:
-#    if not params.filter and not params.calmd:
-#      cmd = "ln -s {input.bam} {output}"
-#      shell("( " + cmd + " > {output} ) 2> {log}")
-#    else:
-#      filter_cmd = "samtools view {params.filter} -b {input.bam}"
-#
-#      cmds = [filter_cmd, ]
-#      if params.calmd:
-#        calmd_cmd = "samtools calmd -b /dev/stdin {input.ref}"
-#        cmds.append(calmd_cmd)
-#      cmd = " | ".join(cmds)
-#      shell("( " + cmd + " > {output} ) 2> {log}")
+rule samtools_preprocess_bam:
+  input: bam="data/bams/{filename}.bam",
+         bai="data/bams/{filename}.bam.bai",
+         ref=REF_FASTA
+  output: "results/bams/preprocessed/{filename}.bam",
+  params:
+    filter=config["preprocess"]["filter"],
+    calmd=config["preprocess"]["calmd"],
+  log: "logs/samtools/preprocessed/{filename}.log"
+  run:
+    if not params.filter and not params.calmd:
+      cmd = "ln -s {input.bam} {output}"
+      shell("( " + cmd + " > {output} ) 2> {log}")
+    else:
+      filter_cmd = "samtools view {params.filter} -b {input.bam}"
+
+      cmds = [filter_cmd, ]
+      if params.calmd:
+        calmd_cmd = "samtools calmd -b /dev/stdin {input.ref}"
+        cmds.append(calmd_cmd)
+      cmd = " | ".join(cmds)
+      shell("( " + cmd + " > {output} ) 2> {log}")
 
 
 rule samtools_index:
@@ -97,7 +91,7 @@ def _samtools_merge_input(wildcards):
     if READS == "fastq":
         fname = f"results/bams/final/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
     elif READS == "bam":
-        fname = f"data/bams/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
+        fname = f"results/bams/preprocessed/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
     else:
       raise Exception()
     fnames.append(fname)

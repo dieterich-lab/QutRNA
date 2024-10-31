@@ -53,6 +53,16 @@ properties:
         type: integer
         default: 2
     default: {}
+  preprocess:
+    type: object
+    properties:
+      filter:
+        type: string
+      calmd:
+        type: boolean
+    default:
+      filter: "-F 3328"
+      calmd: true
   params:
     type: object
     properties:

@@ -61,7 +61,7 @@ rule jacusa2_add_scores:
     mem_mb=10000
   log: "logs/jacusa2/add_scores/cond1~{COND1}/cond2~{COND2}.log",
   shell: """
-    Rscript {workflow.basedir:q}/scripts/add_scores.R -n -f {input.fasta:q} -o {output:q} {input.jacusa2:q} 2> {log:q}
+    Rscript {workflow.basedir:q}/scripts/add_scores.R -f {input.fasta:q} -o {output:q} {input.jacusa2:q} 2> {log:q}
   """
 
 
