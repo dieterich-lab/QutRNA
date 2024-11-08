@@ -6,6 +6,7 @@ SPRINZL = "data/sprinzl.txt"
 SEQ_TO_SPRINZL = "results/seq_to_sprinzl_filtered.tsv"
 MODS = "data/mods.tsv"
 MOD_ABBREVS = "data/mod_abbrevs.tsv"
+DEFAULT_SCORE = "MDI::mismatch_score+deletion_score+insertion_score"
 
 
 # FASTQ or BAM

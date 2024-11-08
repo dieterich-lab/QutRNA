@@ -36,6 +36,11 @@ def _plot_heatmap_opts(wildcards, input):
   if "coverages" in pep.config["qutrna"]:
     opts.append("--coverages=" + input.coverages)
 
+  if "score" in plot["score"]:
+    opts.append("--score=" + plot["score"].split("::")[0])
+  else:
+    opts.append("--score=" + DEFAULT_SCORE.split("::")[0])
+
   if "sprinzl" in pep.config["qutrna"]:
     opts.append("--sprinzl=" + input.sprinzl)
 
