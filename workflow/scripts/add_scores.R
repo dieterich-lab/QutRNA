@@ -6,7 +6,6 @@ library(JACUSA2helper)
 library(SummarizedExperiment)
 
 WIDTH <- 5
-
 option_list <- list(
   optparse::make_option(c("-f", "--fasta"),
                         type = "character",

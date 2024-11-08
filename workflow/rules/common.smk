@@ -8,16 +8,6 @@ MODS = "data/mods.tsv"
 MOD_ABBREVS = "data/mod_abbrevs.tsv"
 DEFAULT_SCORE = "MDI::mismatch_score+deletion_score+insertion_score"
 
-TBL = pep.sample_table.explode("subsample_name")
-SAMPLES = TBL["sample_name"].unique().tolist()
-SUBSAMPLES = TBL["subsample_name"].tolist()
-
-
-wildcard_constraints:
-  SAMPLE="|".join(SAMPLES),
-  SUBSAMPLE="|".join(SUBSAMPLES),
-  ORIENT="|".join(["fwd", "rev"]),
-  BC="|".join(["pass", "fail", "merged", "unknown"]),
 
 # FASTQ or BAM
 READS = ""
@@ -37,6 +27,23 @@ else:
 if "mods" in pep.config["qutrna"]:
   SCORES += "-mods"
 SCORES += ".tsv"
+
+
+__nested_cols = []
+TBL = pep.sample_table
+for c in ["subsample_name", "base_calling", READS]:
+  if any(isinstance(o, list) for o in TBL[c]):
+    __nested_cols.append(c)
+if __nested_cols:
+  TBL = TBL.explode(__nested_cols)
+SAMPLES = TBL["sample_name"].unique().tolist()
+SUBSAMPLES = TBL["subsample_name"].tolist()
+
+wildcard_constraints:
+  SAMPLE="|".join(SAMPLES),
+  SUBSAMPLE="|".join(SUBSAMPLES),
+  ORIENT="|".join(["fwd", "rev"]),
+  BC="|".join(["pass", "fail", "merged", "unknown"]),
 
 
 def create_include(name, input, output, params):
@@ -96,7 +103,7 @@ if "mods" in pep.config["qutrna"]:
 
 def _include_fnames(ftype):
   def helper(wildcards):
-    tbl = pep.sample_table.explode(["base_calling", ftype]).loc[[wildcards.SAMPLE]]
+    tbl = TBL.loc[[wildcards.SAMPLE]]
     i = (tbl.subsample_name == wildcards.SUBSAMPLE) & (tbl.base_calling == wildcards.BC)
     if sum(i) != 1:
       raise Exception("")

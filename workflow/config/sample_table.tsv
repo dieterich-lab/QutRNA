@@ -1,0 +1,5 @@
+sample_name	subsample_name	condition	base_calling	bam
+DNMT2	DNMT2_1	DNMT2	pass	/beegfs/prj/tRNA_Francesca_Tuorto/data/FT_tRNA_custom_merged/DNMT2.bam
+NSUN2	NSUN2_1	NSUN2	pass	/beegfs/prj/tRNA_Francesca_Tuorto/data/FT_tRNA_custom_merged/NSUN2.bam
+QTRT1	QTRT1_1	QTRT1	pass	/beegfs/prj/tRNA_Francesca_Tuorto/data/FT_tRNA_custom_merged/QTRT1.bam
+wt	wt_1	wt	pass	/beegfs/prj/tRNA_Francesca_Tuorto/data/FT_tRNA_custom_merged/wt.bam
