@@ -56,9 +56,29 @@ summarise_ratio <- function(r, f) {
   ratios1 - ratios2
 }
 
-PARSE_COLS <- list("mismatch_score" = function(r) { return(rowData(r)$mismatch_score) },
+
+norm_score <- function(r, score) {
+  scores <- rowData(r)[[score]]
+  scores_subsampled <- rowData(r)[[paste0("score_subsampled")]] |>
+    lapply(median) |>
+    unlist()
+
+  i <- scores <= scores_subsampled
+  if (any(i)) {
+    scores[i] <- 0
+  }
+
+  scores
+}
+
+PARSE_COLS <- list("mismatch_score" = function(r) { return(rowData(r)$score) },
                    "insertion_score" = function(r) { return(rowData(r)$insertion_score) },
                    "deletion_score" = function(r) { return(rowData(r)$deletion_score) },
+                   #
+                   "norm_mismatch_score" = function(r) { return(norm_score(r, "score")) },
+                   "norm_insertion_score" = function(r) { return(norm_score(r, "insertion_score")) },
+                   "norm_deletion_score" = function(r) { return(norm_score(r, "deletion_score")) },
+                   #
                    "non_ref_ratio" = function(r) { return(summarise_ratio(r, non_ref_ratio)) },
                    "insertion_ratio" = function(r) { return(summarise_ratio(r, insertion_ratio)) } ,
                    "deletion_ratio" = function(r) { return(summarise_ratio(r, deletion_ratio)) })
@@ -74,6 +94,7 @@ parse_stats <- function(stat_opts) {
   df <- do.call(rbind, l) |>
     as.data.frame()
   colnames(df) <- c("new_col", "stat")
+  df[, "stat"] <- gsub("norm:", "norm_", df[, "stat"])
 
   df
 }
@@ -130,21 +151,13 @@ parse_result <- function(r, stats) {
   cols <- c("trna", "pos", "strand", cols, stats$new_col)
   df <- df[, cols]
 
-  # TODO
-  #if (opts$options$normalize_score) {
-  #  score <- ""
-  #  subsampled <- ""
-  #  normalize_score <- normalize_score(score, subsampled)
-  #}
-
   df
 }
 
 # load JACUSA2 output and add... reference context
 r <- JACUSA2helper::import_result(opts$args)
 rowData(r) <- rowData(r) |>
-  as.data.frame() |>
-  dplyr::rename(mismatch_score = "score")
+  as.data.frame()
 fasta <- Biostrings::readDNAStringSet(opts$options$fasta)
 GenomeInfoDb::seqlevels(r) <- GenomeInfoDb::seqlevels(fasta)
 seqinfo(r) <- seqinfo(fasta)
@@ -155,8 +168,8 @@ stats <- parse_stats(opts$options$stat)
 # calculate stats and create output
 df <- parse_result(r, stats)
 
-#write.table(df,
-#            opts$options$output,
-#            quote=FALSE,
-#            sep = "\t",
-#            col.names = TRUE, row.names = FALSE)
+write.table(df,
+            opts$options$output,
+            quote=FALSE,
+            sep = "\t",
+            col.names = TRUE, row.names = FALSE)

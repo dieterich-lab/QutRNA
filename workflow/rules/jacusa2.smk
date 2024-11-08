@@ -51,7 +51,13 @@ rule jacusa2_run:
 ################################################################################
 # Process JACUSA2 scores
 ################################################################################
-# FIXME make -n by options
+def _jacusa_add_scores(wildcards):
+  scores = {plot["scores"] for plot in config["plots"]}
+  if not scores:
+    scores = "MDI::mismatch_score+deletion_score+insertion_score"
+
+  return "-s " + ",".join(scores)
+
 rule jacusa2_add_scores:
   input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/JACUSA2.out",
          fasta=REF_FASTA,
@@ -60,8 +66,9 @@ rule jacusa2_add_scores:
   resources:
     mem_mb=10000
   log: "logs/jacusa2/add_scores/cond1~{COND1}/cond2~{COND2}.log",
+  params: stats=_jacusa_add_scores
   shell: """
-    Rscript {workflow.basedir:q}/scripts/add_scores.R -n -f {input.fasta:q} -o {output:q} {input.jacusa2:q} 2> {log:q}
+    Rscript {workflow.basedir:q}/scripts/add_scores.R {params.stats} -f {input.fasta:q} -o {output:q} {input.jacusa2:q} 2> {log:q}
   """
 
 
