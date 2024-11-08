@@ -51,7 +51,6 @@ rule jacusa2_run:
 ################################################################################
 # Process JACUSA2 scores
 ################################################################################
-# FIXME make -n by options
 rule jacusa2_add_scores:
   input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/JACUSA2.out",
          fasta=REF_FASTA,
