@@ -1,12 +1,9 @@
 #!/usr/bin/env Rscript
 
 # Process JACUSA2 scores and add additional data.
-library(magrittr)
 library(GenomicRanges)
-
-# TODO move this part to JACUSA2helper
-# process scores
-# add kmer in JACUS2Ahelper
+library(JACUSA2helper)
+library(SummarizedExperiment)
 
 WIDTH <- 5
 
@@ -14,10 +11,13 @@ option_list <- list(
   optparse::make_option(c("-f", "--fasta"),
                         type = "character",
                         help = "FASTA sequence"),
-  optparse::make_option(c("-n", "--normalize_score"),
-                        action = "store_true",
-                        help = "Normalize score with subsampled data",
-                        default = FALSE),
+  optparse::make_option(c("-w", "--width"),
+                        type = "numeric",
+                        help = paste0("Width of sequence context. Default: ",
+                                      WIDTH),
+                        default = WIDTH),
+  optparse::make_option(c("-s", "--stat"),
+                        help = "Define statistics"),
   optparse::make_option(c("-o", "--output"),
                         type = "character",
                         help = "Output")
@@ -30,129 +30,133 @@ opts <- optparse::parse_args(
   positional_arguments = TRUE
 )
 
-
 stopifnot(!is.null(opts$options$fasta))
 stopifnot(!is.null(opts$options$output))
+stopifnot(!is.null(opts$options$stat))
 stopifnot(length(opts$args) == 1)
-fasta <- Biostrings::readDNAStringSet(opts$options$fasta)
 
-# TODO normalize by sampled scores
+summarise_ratio <- function(r, f) {
+  by_conds <- split(colData(r), colData(r)$condition) |>
+    lapply(rownames)
+  cols1 <- by_conds[[names(by_conds)[1]]]
+  cols2 <- by_conds[[names(by_conds)[2]]]
 
-common_cols <- c("Ref", "Pos3", "Mis", "Mis+Del+Ins", "Kmer")
-if (opts$options$normalize_score) {
-  result <- JACUSA2helper::read_result(opts$args, unpack = c("score_subsampled", "insertion_score_subsampled", "deletion_score_subsampled", "insertion_score", "deletion_score", "reads", "insertion_ratio", "deletion_ratio", "non_ref_ratio", "base_ratio")) |>
-    IRanges::shift(-1) |>
-    plyranges::select(bases, score,
-                      score_subsampled,
-                      insertion_score, insertion_score_subsampled, insertion_ratio,
-                      deletion_score, deletion_score_subsampled, deletion_ratio,
-                      reads,ref, non_ref_ratio, base_ratio)
-  common_cols <- c(common_cols, "mean_delta_MisDelIns_subsampled")
-} else {
-  result <- JACUSA2helper::read_result(opts$args, unpack = c("insertion_score", "deletion_score", "reads")) %>%
-    IRanges::shift(-1) %>%
-    plyranges::select(bases, score,
-                      ins, insertion_score,
-                      del, deletion_score, reads, ref) %>%
-    plyranges::mutate(Ref = seqnames,
-                      Pos3 = start)
-}
-
-
-cond_repl <- c(names(result$bases$cond1) %>% gsub("rep", "", .) %>% paste0("1", .),
-               names(result$bases$cond2) %>% gsub("rep", "", .) %>% paste0("2", .))
-
-add_value <- function(result, key, label) {
-  if (key %in% colnames(mcols(result))) {
-    values <- lapply(data.table::tstrsplit(mcols(result)[, key], split = ",", fixed = TRUE), as.numeric) %>%
-        as.data.frame()
-    mcols(result)[, key] <- NULL
-    colnames(values) <- paste0(label, cond_repl)
-    common_cols <- c(common_cols, colnames(values))
-    mcols(result) <- dplyr::bind_cols(mcols(result) |> as.data.frame(), values)
+  ratios <- f(r)
+  if (length(cols1) > 1) {
+    ratios1 <- rowMeans(ratios[, cols1])
+  } else {
+    ratios1 <- ratios[, cols1]
+  }
+  if (length(cols2) > 1) {
+    ratios2 <- rowMeans(ratios[, cols2])
+  } else {
+    ratios2 <- ratios[, cols2]
   }
 
-  result
+  ratios1 - ratios2
 }
 
-result <- add_value(result, "reads", "coverage_")
-result <- add_value(result, "insertion_ratio", "insertion_ratio_")
-browser()
-result <- add_value(result, "deletion_ratio", "deletion_ratio_")
-#result <- add_value(result, "non_ref_ratio", "non_ref_ratio_")
+PARSE_COLS <- list("mismatch_score" = function(r) { return(rowData(r)$mismatch_score) },
+                   "insertion_score" = function(r) { return(rowData(r)$insertion_score) },
+                   "deletion_score" = function(r) { return(rowData(r)$deletion_score) },
+                   "non_ref_ratio" = function(r) { return(summarise_ratio(r, non_ref_ratio)) },
+                   "insertion_ratio" = function(r) { return(summarise_ratio(r, insertion_ratio)) } ,
+                   "deletion_ratio" = function(r) { return(summarise_ratio(r, deletion_ratio)) })
 
-GenomeInfoDb::seqlevels(result) <- GenomeInfoDb::seqlevels(fasta)
-seqinfo(result) <- seqinfo(fasta)
-
-mcols(result, level = "within")[, "Mis"] <-
-  mcols(result, level = "within")[, "score"]
-mcols(result, level = "within")[, "Del"] <-
-  mcols(result, level = "within")[, "deletion_score"]
-mcols(result, level = "within")[, "Ins"] <-
-  mcols(result, level = "within")[, "insertion_score"]
-
-result <- result %>%
-  plyranges::mutate(
-    Mis = tidyr::replace_na(Mis, 0),
-    Del = tidyr::replace_na(Del, 0),
-    Ins = tidyr::replace_na(Ins, 0),
-  )
-
-# add kmer TODO add to JACUSA2helper
-suppressWarnings({
-  result <- result %>%
-    plyranges::mutate(MisDelIns = Mis + Del + Ins) %>%
-    IRanges::resize(width = WIDTH, fix = "center") %>%
-    IRanges::shift(1) %>%
-    plyranges::filter(start > 0 &
-                      end < GenomeInfoDb::seqlengths(.)[as.character(GenomeInfoDb::seqnames(.))]) %>%
-    plyranges::mutate(Kmer = BSgenome::getSeq(fasta, .) %>% as.character()) %>%
-    IRanges::shift(-1) %>%
-    IRanges::resize(width = IRanges::width(.) + 1)
-})
-
-if (opts$options$normalize_score) {
-  unpack <- function(v) {
-    strsplit(v, ",") |>
-      lapply(function(x) { tidyr::replace_na(x, 0) } ) |>
-      lapply(as.numeric)
-  }
-
-  score_subsampled <- unpack(result$score_subsampled)
-  delta_score_subsampled <- mapply(`-`, result$score, score_subsampled, SIMPLIFY=FALSE)
-  mean_delta_score_subsampled <- lapply(delta_score_subsampled, mean) |> unlist()
-
-  insertion_score_subsampled <- unpack(result$insertion_score_subsampled)
-  delta_insertion_score_subsampled <- mapply(`-`, result$insertion_score, insertion_score_subsampled, SIMPLIFY=FALSE)
-  mean_delta_insertion_score_subsampled <- lapply(delta_insertion_score_subsampled, mean) |> unlist()
-
-  deletion_score_subsampled <- unpack(result$deletion_score_subsampled)
-  delta_deletion_score_subsampled <- mapply(`-`, result$deletion_score, deletion_score_subsampled, SIMPLIFY=FALSE)
-  mean_delta_deletion_score_subsampled <- lapply(delta_deletion_score_subsampled, mean) |> unlist()
-
-  common_cols <- c(common_cols,
-                   "score", "score_subsampled",
-                   "insertion_score", "insertion_score_subsampled",
-                   "deletion_score", "deletion_score_subsampled")
-
-  result <- result |>
-    plyranges::mutate(Ref = seqnames,
-                      Pos3 = start,
-                      mean_delta_MisDelIns_subsampled = mean_delta_score_subsampled +
-                      mean_delta_insertion_score_subsampled +
-                      mean_delta_deletion_score_subsampled)
-  i <- result$mean_delta_deletions_score_subsampled < 0 | is.na(result$mean_delta_deletions_score_subsampled)
-  if (any(i)) {
-    mcols(result)[i, "mean_delta_MisDelIns_subsampled"] <- 0
-  }
+clean_score <- function(score) {
+  tidyr::replace_na(score, 0)
 }
 
-df <- GenomicRanges::mcols(result) |>
+parse_stats <- function(stat_opts) {
+  l <- strsplit(stat_opts, ",") |>
+    unlist() |>
+    strsplit("::")
+  df <- do.call(rbind, l) |>
+    as.data.frame()
+  colnames(df) <- c("new_col", "stat")
+
+  df
+}
+
+pick_cols <- function(stats) {
+  stats <- strsplit(stats, split = "\\+") |>
+    unlist()
+
+  gsub("^norm:", "", stats) |>
+    unique()
+}
+
+replace_prefix <- function(df, r, new_prefix) {
+  new_cols <- colData(r) |>
+    as.data.frame() |>
+    dplyr::mutate(.by = condition,
+                  new_prefix = paste0(new_prefix, "_", dplyr::cur_group_id(), "_", 1:dplyr::n())) |>
+    dplyr::pull(new_prefix)
+
+  df <- df[, rownames(colData(r))]
+  colnames(df) <- new_cols
+
+  df
+}
+
+parse_result <- function(r, stats) {
+  cols <- c("ref", "ref_context")
+  df <- rowRanges(r)[, c("ref", "ref_context")] |>
+    as.data.frame() |>
+    dplyr::rename(trna = seqnames,
+                  pos = start) |>
+    dplyr::select(trna, pos, strand, ref, ref_context)
+
+  # add intermediate columns
+  reads <- replace_prefix(assays(r)$reads, r, "reads")
+  cols <- c(cols, colnames(reads))
+  df <- cbind(df, reads)
+  for (col in pick_cols(stats$stat)) {
+    if (!col %in% colnames(df)) {
+      f <- PARSE_COLS[[col]]
+      df[, col] <- f(r)
+    }
+  }
+
+  # add final columns
+  for (i in rownames(stats)) {
+    new_col <- stats[i, "new_col"]
+    stat <- stats[i, "stat"]
+    if (!new_col %in% colnames(df)) {
+      df[, new_col] <- with(df, eval(parse(text = stat)))
+    }
+  }
+  # keep what is needed
+  cols <- c("trna", "pos", "strand", cols, stats$new_col)
+  df <- df[, cols]
+
+  # TODO
+  #if (opts$options$normalize_score) {
+  #  score <- ""
+  #  subsampled <- ""
+  #  normalize_score <- normalize_score(score, subsampled)
+  #}
+
+  df
+}
+
+# load JACUSA2 output and add... reference context
+r <- JACUSA2helper::import_result(opts$args)
+rowData(r) <- rowData(r) |>
   as.data.frame() |>
-  dplyr::rename(`Mis+Del+Ins` = MisDelIns)
+  dplyr::rename(mismatch_score = "score")
+fasta <- Biostrings::readDNAStringSet(opts$options$fasta)
+GenomeInfoDb::seqlevels(r) <- GenomeInfoDb::seqlevels(fasta)
+seqinfo(r) <- seqinfo(fasta)
+r <- JACUSA2helper::add_ref_context(r, fasta, width = opts$options$width)
 
-# good to go to files
-df <- df %>% dplyr::select(dplyr::all_of(common_cols),
-                           dplyr::starts_with("coverage_"))
+# parse options and create output container
+stats <- parse_stats(opts$options$stat)
+# calculate stats and create output
+df <- parse_result(r, stats)
 
-write.table(df, opts$options$output, quote=FALSE, sep = "\t", col.names = TRUE, row.names = FALSE)
+#write.table(df,
+#            opts$options$output,
+#            quote=FALSE,
+#            sep = "\t",
+#            col.names = TRUE, row.names = FALSE)
