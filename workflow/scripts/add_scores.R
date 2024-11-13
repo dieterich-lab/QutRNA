@@ -58,11 +58,16 @@ summarise_ratio <- function(r, f) {
 
 norm_score <- function(r, score) {
   scores <- rowData(r)[[score]]
-  scores_subsampled <- rowData(r)[[paste0("score_subsampled")]] |>
-    lapply(median) |>
-    unlist()
+  scores_subsampled <- rowData(r)[[paste0(score, "_subsampled")]]
+  runs <- lapply(scores_subsampled, length) |>
+    unlist() |>
+    unique()
+  stopifnot(length(runs) == 1 || runs == 0)
 
-  i <- scores <= scores_subsampled
+  i <- !mapply(function(observed, subsampled) { return((sum(observed >= subsampled) / runs) >= 0.9) },
+               as.list(scores), scores_subsampled)
+  #i <- (scores <= lapply(scores_subsampled, median) |> unlist())
+
   if (any(i)) {
     scores[i] <- 0
   }
@@ -128,7 +133,7 @@ parse_result <- function(r, stats) {
     dplyr::select(trna, pos, strand, ref, ref_context)
 
   # add intermediate columns
-  reads <- replace_prefix(assays(r)$reads, r, "reads")
+  reads <- replace_prefix(assays(r)$reads, r, "coverage")
   cols <- c(cols, colnames(reads))
   df <- cbind(df, reads)
   for (col in pick_cols(stats$stat)) {
@@ -153,19 +158,76 @@ parse_result <- function(r, stats) {
   df
 }
 
+res_to_r <- function(res) {
+  rowRanges <- res[, c("score", "filter", "ref",
+                       "insertion_score", "deletion_score",
+                       "score_subsampled", "deletion_score_subsampled", "insertion_score_subsampled")]
+  mcols(rowRanges)[, "ref_context"] <- "N"
+
+  assays <- list()
+  bases <- res$bases
+  l <- list()
+  condition <- c()
+  for (cond in names(bases)) {
+    s <- gsub("cond", "bam_", cond)
+    r <- length(bases[[cond]])
+    b <- bases[[cond]]
+    s <- paste0(s, "_", seq_len(r))
+    names(b) <- s
+    l <- append(l, b)
+    condition <- c(condition, rep(cond, r))
+  }
+  assays[["bases"]] <- l |>
+    tibble::as_tibble()
+
+  colData <- data.frame(condition = condition)
+  row.names(colData) <- names(assays[["bases"]])
+
+  # parse indels
+  #for (k in c("insertion", "deletion")) {
+  #  if (any(grepl(paste0("^", k), colnames(unpacked_info)))) {
+  #    res <- .add_indels(k, unpacked_info, assays, rowRanges, rownames(colData))
+  #    rowRanges <- res$rowRanges
+  #    assays <- res$assays
+  #  }
+  #}
+  for (score in c("score_subsampled", "insertion_score_subsampled", "deletion_score_subsampled")) {
+    mcols(rowRanges)[[score]] <- strsplit(mcols(rowRanges)[[score]], ",") |>
+        lapply(as.numeric) |>
+        lapply(unlist)
+  }
+
+  l <- strsplit(res$reads, split = ",", fixed = TRUE) |>
+    lapply(as.numeric)
+  d <- do.call(rbind, l)
+  colnames(d) <- rownames(colData)
+  assays[["reads"]] <- as.data.frame(d)
+
+  metadata <- list()
+  metadata[["command"]] <- "UNKNOWN"
+
+  se <- SummarizedExperiment(assays = assays,
+                             rowRanges = rowRanges,
+                             colData = colData,
+                             metadata = metadata)
+
+  se
+}
+
 # load JACUSA2 output and add... reference context
-r <- JACUSA2helper::import_result(opts$args)
-rowData(r) <- rowData(r) |>
-  as.data.frame()
-fasta <- Biostrings::readDNAStringSet(opts$options$fasta)
-GenomeInfoDb::seqlevels(r) <- GenomeInfoDb::seqlevels(fasta)
-seqinfo(r) <- seqinfo(fasta)
-r <- JACUSA2helper::add_ref_context(r, fasta, width = opts$options$width)
+res <- JACUSA2helper::read_result(opts$args,
+                                unpack = c("score_subsampled",
+                                           "reads",
+                                           "insertion_score", "deletion_score",
+                                           "insertion_score_subsampled", "deletion_score_subsampled"))
+r <- res_to_r(res)
 
 # parse options and create output container
 stats <- parse_stats(opts$options$stat)
 # calculate stats and create output
 df <- parse_result(r, stats)
+df$Ref <- df$trna
+df$Pos3 <- df$pos
 
 write.table(df,
             opts$options$output,

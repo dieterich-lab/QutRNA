@@ -1,5 +1,5 @@
 rule ss_transform:
-  input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores.tsv",
+  input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores_seq.tsv",
          sprinzl=SEQ_TO_SPRINZL,
   output: temp("results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores_sprinzl.tsv"),
   conda: "qutrna",

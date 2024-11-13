@@ -46,19 +46,6 @@ rule samtools_coverage:
   """
 
 
-# TODO
-#rule merge_coverage:
-#  input: ""
-#  output: "coverage.tsv"
-#  conda: "qutrna",
-#  resources:
-#    mem_mb=4000
-#  log: "logs/samtools/merge_coverage.log",
-#  shell: """
-#    python {workflow.basedir}/merge_coverage.py > {output:q} 2> {log:q}
-#  """
-
-
 rule samtools_get_score:
   input: "results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam"
   output: "results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_score.txt"

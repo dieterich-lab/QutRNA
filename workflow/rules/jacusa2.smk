@@ -52,7 +52,7 @@ rule jacusa2_run:
 # Process JACUSA2 scores
 ################################################################################
 def _jacusa_add_scores(wildcards):
-  scores = {plot["scores"] for plot in config["plots"]}
+  scores = {plot["score"] for plot in config["plots"]}
   if not scores:
     scores = "MDI::mismatch_score+deletion_score+insertion_score"
 
@@ -61,7 +61,7 @@ def _jacusa_add_scores(wildcards):
 rule jacusa2_add_scores:
   input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/JACUSA2.out",
          fasta=REF_FASTA,
-  output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores.tsv",
+  output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores_seq.tsv",
   conda: "qutrna",
   resources:
     mem_mb=10000
@@ -73,7 +73,7 @@ rule jacusa2_add_scores:
 
 
 rule jacusa2_add_seq_mods:
-  input: scores="results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores.tsv",
+  input: scores="results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores_seq.tsv",
          mods=MODS,
   output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores_seq-mods.tsv",
   conda: "qutrna",

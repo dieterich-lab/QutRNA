@@ -247,7 +247,7 @@ if (!is.null(opts$options$remove_prefix)) {
 }
 df[["Ref"]] <- factor(df[["Ref"]],
                       levels = stringr::str_sort(unique(df[["Ref"]]), numeric = TRUE, decreasing = TRUE))
-df[["ref_base"]] <- substr(df[["Kmer"]], 3, 3)
+df[["ref_base"]] <- "N"# FIXME substr(df[["Kmer"]], 3, 3)
 
 df$score <- df[, opts$options$score]
 df$score[df$score < 0] <- 0
