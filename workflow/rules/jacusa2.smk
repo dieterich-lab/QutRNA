@@ -52,9 +52,7 @@ rule jacusa2_run:
 # Process JACUSA2 scores
 ################################################################################
 def _jacusa_add_scores(wildcards):
-  scores = {plot["score"] for plot in config["plots"]}
-  if not scores:
-    scores = "MDI::mismatch_score+deletion_score+insertion_score"
+  scores = {plot.get("score", DEFAULT_SCORE) for plot in config["plots"]}
 
   return "-s " + ",".join(scores)
 
