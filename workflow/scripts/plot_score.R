@@ -91,6 +91,10 @@ option_list <- list(
               type = "character",
               default = NULL,
               help = "Flag positions, e.g.: tRNA:pos, use ','"),
+  make_option(c("--aas"),
+              type = "character",
+              default = NULL,
+              help = "tRNAs to show, e.g.: tRNA, use ','"),
   make_option(c("--positions"),
               type = "character",
               default = NULL,
@@ -170,10 +174,16 @@ if (!is.null(opts$options$flag)) {
 
 df$trna <- df$Ref
 i <- grepl("tRNA", df$Ref)
+
 df$amino_acid <- ""
 df[i, "amino_acid"] <- stringr::str_extract(df[i, "Ref"], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 1)
 df$anti_codon <- ""
 df[i, "anti_codon"] <- stringr::str_extract(df[i, "Ref"], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 2)
+
+if (!is.null(opts$options$aas)) {
+  aas <- strsplit(opts$options$aas, ",")[[1]]
+  df <- df[df$amino_acid %in% aas, ]
+}
 
 if (is.null(opts$options$coverages)) {
   cov <- df %>%
@@ -446,11 +456,15 @@ plot_coverage <- function(cov, max_cov = NULL) {
   p
 }
 
-sort_ref <- function(df, cov) {
-  tmp_cov <- cov[, c("Ref", "total_coverage")] %>%
-    distinct()
-  o <- order(tmp_cov$total_coverage)
-  ref <- tmp_cov$Ref[o]
+sort_ref <- function(df, cov = NULL) {
+  if (!is.null(cov)) {
+    tmp_cov <- cov[, c("Ref", "total_coverage")] %>%
+      distinct()
+    o <- order(tmp_cov$total_coverage)
+    ref <- tmp_cov$Ref[o]
+  } else {
+    ref = order(unique(df$Ref))
+  }
 
   df$Ref <- factor(df$Ref, levels = ref, ordered = TRUE)
   cov$Ref <- factor(cov$Ref, levels = ref, ordered = TRUE)
@@ -497,7 +511,11 @@ save_plot <- function(df, cov, e) {
   df <- add_missing(df)
 
   if (opts$options$sort) {
-    tmp <- sort_ref(df, cov)
+    if (opts$options$show_coverage) {
+      tmp <- sort_ref(df, cov)
+    } else {
+      tmp <- sort_ref(df)
+    }
     df <- tmp$df
     cov <- tmp$cov
   }

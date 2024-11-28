@@ -64,8 +64,6 @@ norm_score <- function(r, score, score_sampled) {
     unique()
   # stopifnot(length(runs) == 1 || runs == 0)
 
-  # i <- !mapply(function(observed, subsampled) { return((sum(observed >= subsampled) / runs) >= 0.9) },
-  #              as.list(scores), scores_subsampled)
   new_scores <- mapply(function(observed, subsampled) { return(observed - max(subsampled, na.rm = TRUE)) },
                as.list(scores), scores_subsampled)
 
@@ -83,10 +81,10 @@ summarise_score <- function(r, score, f) {
     unlist() |>
     unique()
   stopifnot(length(runs) == 1 || runs == 0)
-  
+
   scores <- lapply(scores, f) |>
     unlist()
-  
+
   scores
 }
 
