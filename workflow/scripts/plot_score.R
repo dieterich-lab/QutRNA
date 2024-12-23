@@ -53,9 +53,8 @@ option_list <- list(
               action = "store_true",
               default = FALSE,
               help = "Hide mods"),
-  make_option(c("--sort"),
-              action = "store_true",
-              default = FALSE,
+  make_option(c("--sort_by"),
+              default = "trna",
               help = "Sort by coverage,tRNA"),
   make_option(c("--show_introns"),
               action = "store_true",
@@ -138,6 +137,7 @@ pos_col <- opts$options$column
 if (pos_col == "sprinzl") {
   df <- df[!df[[pos_col]] %in% c("-", "."), ]
 
+  # TODO remove
   #coords <- c(1:17, "17a", 18:20, "20a", "20b", 21:37,
   #            paste0("i", 1:24),
   #            38:45,
@@ -155,6 +155,16 @@ if (pos_col == "sprinzl") {
     df <- df[i, ]
     i <- !grepl("i[0-9]+", coords)
     coords <- coords[i]
+  } else {
+    i <- grepl("i[0-9]+", df[[pos_col]])
+    if (any(i)) {
+      intron_start <- which(coords == "37")
+      coords <- c(coords[1:intron_start],
+                  df[i, pos_col] |>
+                    unique() |>
+                    stringr::str_sort(numeric = TRUE),
+                  coords[(intron_start + 1):length(coords)])
+    }
   }
   df[[pos_col]] <- factor(df[[pos_col]], levels = coords, ordered = TRUE)
 } else {
@@ -257,7 +267,7 @@ if (!is.null(opts$options$remove_prefix)) {
 }
 df[["Ref"]] <- factor(df[["Ref"]],
                       levels = stringr::str_sort(unique(df[["Ref"]]), numeric = TRUE, decreasing = TRUE))
-df[["ref_base"]] <- "N"# FIXME substr(df[["Kmer"]], 3, 3)
+df[["ref_base"]] <- df[["ref"]]
 
 df$score <- df[, opts$options$score]
 df$score[df$score < 0] <- 0
@@ -313,65 +323,26 @@ plot_main <- function(df) {
   sprinzl <- levels(df$sprinzl)
 
   if (opts$options$scale_by_cov) {
-    # s <- "median cov. Q1\n(1st. quartile)"
-
     heights <- df |>
       distinct(Ref, coverage1) |>
       filter(!is.na(coverage1)) |>
-      #mutate(quartile = paste0("Q", ntile(median_coverage, 4))) |>
-      #group_by(quartile) |>
       arrange(Ref) |>
       mutate(height = 10 * coverage1 / sum(coverage1, na.rm = TRUE),
              y_end = cumsum(height),
              y_pos = y_end - height / 2) |>
-      #ungroup() |>
       select(-coverage1)# |>
-      #mutate(
-      #  quartile = case_when(
-      #    quartile == "Q1" ~ s,
-      #    .default = quartile),
-      #  quartile = factor(quartile, levels = c(paste0("Q", 4:2), s)))
 
     df <- df |>
       left_join(heights, by = join_by(Ref))
 
-    # helper_y_pos <- function(q) {
-    #   heights |>
-    #     filter(quartile == q) |>
-    #     pull(y_pos)
-    # }
-    # helper_Ref <- function(q) {
-    #   heights |>
-    #     filter(quartile == q) |>
-    #     pull(Ref)
-    # }
-
-    p <- df |> 
+    p <- df |>
       ggplot(aes(x = .data[[pos_col]], y = y_pos, fill = score)) +
-      #facet_grid(quartile ~ ., scales = "free_y", space = "free_y") +
       geom_tile(aes(height = height), width = 1, colour = "white") +
-      # ylab("mean cov.") + 
       scale_y_continuous(breaks = heights$y_pos, labels = heights$Ref) +
       ylab("")
 
-      # q = unique(heights$quartile)
-      # n = length(q)
-      # 
-      # l <- list()
-      # l <- append(l, quartile == s ~ scale_y_continuous(breaks = helper_y_pos(s), labels = helper_Ref(s)))
-      # if (n > 1) {
-      #   l <- append(l, quartile == "Q2" ~ scale_y_continuous(breaks = helper_y_pos("Q2"), labels = helper_Ref("Q2")))
-      # }
-      # if (n > 2) {
-      #   l <- append(l, quartile == "Q3" ~ scale_y_continuous(breaks = helper_y_pos("Q3"), labels = helper_Ref("Q3")))
-      # }
-      # if (n > 3) {
-      #   l <- append(l, quartile == "Q4" ~ scale_y_continuous(breaks = helper_y_pos("Q4"), labels = helper_Ref("Q4")))
-      # }
-      # # FIXME less than 4 scales
-      # p <- p + ggh4x::facetted_pos_scales(y = l)
   } else {
-    p <- df |> 
+    p <- df |>
       ggplot(aes(x = .data[[pos_col]], y = Ref, fill = score)) +
       geom_tile(colour = "white", width = 1, height = 1) +
       ylab("") +
@@ -384,7 +355,7 @@ plot_main <- function(df) {
       theme(panel.background = element_rect(fill = "white", color = "white"),
             legend.position = "top",
             panel.border = element_blank(),
-            axis.text.x = element_text(angle = 45, size = 8),
+            axis.text.x = element_text(angle = 90, size = 8, vjust = 0.5, hjust=1),
             panel.grid.major = element_blank(),
             panel.grid.minor = element_blank(),
             axis.text.y = element_text(family = "mono"),
@@ -419,6 +390,8 @@ plot_main <- function(df) {
   if (!is.null(opts$options$title)) {
     title <- gsub("\\{anti_codon\\}", paste0(unique(na.omit(df$anti_codon)), collapse = ", "), opts$options$title)
     title <- gsub("\\{amino_acid\\}", paste0(unique(na.omit(df$amino_acid)), collapse = ", "), title)
+    title <- gsub("\\{cond1\\}", opts$options$cond1, title)
+    title <- gsub("\\{cond2\\}", opts$options$cond2, title)
     p <- p + ggtitle(title)
   }
 
@@ -435,7 +408,7 @@ plot_coverage <- function(cov, max_cov = NULL) {
     ggplot(aes(x = coverage, y = Ref, fill = condition, colour = condition)) +
     scale_colour_manual(values = c("#bf568b", "#bcd357")) +
     scale_fill_manual(values = c("#bf568b", "#bcd357")) +
-    scale_y_discrete(labels = NULL) +
+    #scale_y_discrete(labels = NULL) +
     scale_x_continuous(breaks = scales::breaks_pretty(3),
                        limits = limits,
                        labels = scales::label_number(scale_cut = scales::cut_short_scale())) +
@@ -463,7 +436,7 @@ sort_ref <- function(df, cov = NULL) {
     o <- order(tmp_cov$total_coverage)
     ref <- tmp_cov$Ref[o]
   } else {
-    ref = order(unique(df$Ref))
+    ref = unique(as.character(df$Ref))
   }
 
   df$Ref <- factor(df$Ref, levels = ref, ordered = TRUE)
@@ -477,11 +450,12 @@ plot_complex <- function(df, cov) {
     stringr::str_pad(s, max(nchar(s)), side = "right", pad = "-")
   }
 
-  p1 <- plot_main(df) +
-    scale_y_discrete(labels = padding_helper, position = "right")
+  p1 <- plot_main(df)
+    # scale_y_discrete(labels = padding_helper, position = "right")
+
   p2 <- plot_coverage(cov)
 
-  if (!is.null(opts$options$modmap)) {
+  if (!is.null(opts$options$modmap) && !opts$options$hide_mods) {
     tbl <- plot_table(df)
     if (!is.null(tbl)) {
       p <- (p1 | (p2 + theme(plot.margin = margin(0, 20, 0, 0))) | tbl) +
@@ -495,8 +469,8 @@ plot_complex <- function(df, cov) {
         theme(plot.margin = margin(0, 0, 0, 0))
     }
   } else {
-    p <- p1 | p2 +
-      plot_layout(ncol = 2,
+    p <- (p1 | p2) +
+      plot_layout(ncol = 3,
                   widths = unit(c(-1, 4), c("null", "cm"))) +
       theme(plot.margin = margin(0, 0, 0, 0))
   }
@@ -510,21 +484,27 @@ save_plot <- function(df, cov, e) {
   df[[pos_col]] <- droplevels(df[[pos_col]])
   df <- add_missing(df)
 
-  if (opts$options$sort) {
-    if (opts$options$show_coverage) {
-      tmp <- sort_ref(df, cov)
+  if (!is.null(opts$options$sort_by)) {
+    if (opts$options$sort_by == "coverage") {
+      tmp_cov <- cov[, c("Ref", "total_coverage")] %>%
+        distinct()
+      o <- order(tmp_cov$total_coverage)
+      ref <- tmp_cov$Ref[o]
+    } else if (opts$options$sort_by == "trna") {
+      ref = unique(as.character(df$Ref))
     } else {
-      tmp <- sort_ref(df)
+      stop()
     }
-    df <- tmp$df
-    cov <- tmp$cov
+
+    df$Ref <- factor(df$Ref, levels = ref, ordered = TRUE)
+    cov$Ref <- factor(cov$Ref, levels = ref, ordered = TRUE)
   }
 
   if (opts$options$show_coverage) {
     p <- plot_complex(df, cov)
   } else {
     p <- plot_main(df)
-    if (!is.null(opts$options$modmap)) {
+    if (!is.null(opts$options$modmap) && !opts$options$hide_mods) {
       tbl <- plot_table(df)
       if (!is.null(tbl)) {
         p <- ((p + theme(plot.margin = margin(0, 20, 0, 0))) | tbl) +
