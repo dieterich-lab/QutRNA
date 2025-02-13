@@ -7,6 +7,13 @@ parasail:
   threads: # number of threads to use by parasail
   lines: # split input FASTA into number of lines. MAKE sure thisdivisble by 4!
 
+filter:
+  samtools: # TODO
+  read_length:
+    min: # TODO
+    max: # TODO
+  fix_cigar: # TODO
+
 jacusa2:
   min_cov: # require min cov(arge) per BAM to consider pileup by JACUSA2
   opts: # overwrite default parametes to JACUSA2. Check "schema/config.yaml" (jacusa2["opts"]) for default values

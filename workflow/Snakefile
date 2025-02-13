@@ -1,8 +1,12 @@
-import pandas as pd
+import shutil
+import subprocess
+import yaml
 
 from snakemake.utils import validate
 
-VERSION = "2.0.1-DEV"
+
+VERSION = "2.0.0-DEV-1"
+
 
 validate(config, "schemas/config.yaml")
 pepfile: config["pepfile"]
@@ -15,6 +19,7 @@ include: "rules/parasail.smk"
 include: "rules/jacusa2.smk"
 include: "rules/sec_structure.smk"
 include: "rules/plot.smk"
+include: "rules/info.smk"
 
 
 def target_alignment():
@@ -37,7 +42,7 @@ def target_alignment():
 
 
 def target_sprinzl():
-  return "results/seq_to_sprinzl_filtered.tsv"
+  return ["results/seq_to_sprinzl_filtered.tsv", ]
 
 
 def target_trna_plots():
@@ -67,19 +72,38 @@ def target_all():
 
   return targets
 
+
+def target_info():
+  targets = [
+      "info/config.yaml",
+      "info/pep.yaml",
+      "info/version.txt",
+      "info/opts.txt"]
+
+  if workflow.configfiles:
+    targets += [os.path.join("info/configfiles", f"{i}_{os.path.basename(cf)}") for i, cf in enumerate(workflow.configfiles, start=1)]
+
+  return targets
+
+
 ###
 
+
 rule all:
-  input: target_all()
+  input: target_all() + target_info()
 
 
 rule alignment:
-  input: target_alignment()
+  input: target_alignment() + target_info()
 
 
 rule sprinzl:
-  input: target_sprinzl()
+  input: target_sprinzl() + target_info()
 
 
 rule trna_plots:
-  input: target_trna_plots()
+  input: target_trna_plots() + target_info()
+
+
+rule info:
+  input: target_info()
