@@ -7,12 +7,17 @@ parasail:
   threads: # number of threads to use by parasail
   lines: # split input FASTA into number of lines. MAKE sure thisdivisble by 4!
 
-filter:
-  samtools: # TODO
-  read_length:
-    min: # TODO
-    max: # TODO
-  fix_cigar: # TODO
+preprocess:
+  samtools:
+    filter: # samtools opts, default: "-F 3328"
+    callmd: true|false # set to true, to fix MD field with samtools
+  read_length: # keep reads that obbey the following length criteria
+    min: # default: -1, no filtering
+    max: # default: -1, no filtering
+  alignment_length: # keep reads that obbey the following length criteria
+    min: # default: -1, no filtering
+    max: # default: -1, no filtering
+  trim_cigar: true|false # trim deletions, insertion, mismatches from ends of CIGAR string
 
 jacusa2:
   min_cov: # require min cov(arge) per BAM to consider pileup by JACUSA2

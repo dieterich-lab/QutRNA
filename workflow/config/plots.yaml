@@ -1,0 +1,25 @@
+plots:
+  - id: all-trnas_MDI
+    trnas: all
+    opts: "--sort_by trna --show_coverage --show_introns --title '{cond1} vs. {cond2}; score: MDI' --crop"
+    score: "MDI::mismatch_score+deletion_score+insertion_score"
+  - id: all-trnas_isodecoder_MDI
+    trnas: isodecoder
+    opts: "--sort_by trna --show_coverage --show_introns --title '{cond1} vs. {cond2}; {amino_acid} {anti_codon}; score: MDI' --crop"
+    score: "MDI::mismatch_score+deletion_score+insertion_score"
+  - id: relevant-trnas_MDI
+    trnas: all
+    opts: "--remove_prefix Homo_sapiens_tRNA- --sort_by trna --show_coverage --show_introns --title '{cond1} vs. {cond2}; score: MDI' --crop --aas Asp,Asn,Tyr,Gln,Glu,His,Leu,Thr,Gly,Val"
+    score: "MDI::mismatch_score+deletion_score+insertion_score"
+  - id: all-trnas_MDI-subsampled
+    trnas: all
+    opts: "--sort_by trna --show_coverage --show_introns --title '{cond1} vs. {cond2}; score: MDI-subsampled' --crop"
+    score: "MDI_subsampled::norm_mismatch_score_subsampled+norm_deletion_score_subsampled+norm_insertion_score_subsampled"
+  - id: all-trnas_isodecoder_MDI-subsampled
+    trnas: isodecoder
+    opts: "--sort_by coverage --show_coverage --show_introns --title '{cond1} vs. {cond2}; {amino_acid} {anti_codon}; score: MDI-subsampled' --crop"
+    score: "MDI_subsampled::norm_mismatch_score_subsampled+norm_deletion_score_subsampled+norm_insertion_score_subsampled"
+  - id: relevant-trnas_MDI-subsampled
+    trnas: all
+    opts: "--sort_by trna --show_coverage --show_introns --title '{cond1} vs. {cond2}; score: MDI-subsampled' --crop --aas Asp,Asn,Tyr,Gln,Glu,His,Leu,Thr,Gly,Val"
+    score: "MDI_subsampled::norm_mismatch_score_subsampled+norm_deletion_score_subsampled+norm_insertion_score_subsampled"

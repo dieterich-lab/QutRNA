@@ -1,0 +1,2 @@
+preprocess:
+  trim_cigar: true

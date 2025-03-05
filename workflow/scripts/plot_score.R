@@ -10,6 +10,39 @@ library(magrittr)
 library(dplyr)
 
 
+# TODO mark outside
+MARK <- tibble::tribble(
+  ~condition, ~aa, ~position,
+  "DNMT2", "Asp", "38",
+  "DNMT2", "Gly", "38",
+  "DNMT2", "Val", "38",
+  "NSUN2", "Gln", "34",
+  "NSUN2", "Gln", "48",
+  "NSUN2", "Gln", "49",
+  "NSUN2", "Gln", "50",
+  "NSUN2", "Glu", "34",
+  "NSUN2", "Glu", "48",
+  "NSUN2", "Glu", "49",
+  "NSUN2", "Glu", "50",
+  "NSUN2", "His", "34",
+  "NSUN2", "His", "48",
+  "NSUN2", "His", "49",
+  "NSUN2", "His", "50",
+  "NSUN2", "Leu", "34",
+  "NSUN2", "Leu", "48",
+  "NSUN2", "Leu", "49",
+  "NSUN2", "Leu", "50",
+  "NSUN2", "Thr", "34",
+  "NSUN2", "Thr", "48",
+  "NSUN2", "Thr", "49",
+  "NSUN2", "Thr", "50",
+  "QTRT1", "Tyr", "34",
+  "QTRT1", "Asp", "34",
+  "QTRT1", "Asn", "34",
+  "QTRT1", "His", "34"
+)
+
+
 option_list <- list(
   make_option(c("--score"),
               type = "character",
@@ -102,25 +135,27 @@ option_list <- list(
 
 opts <- parse_args(
   OptionParser(option_list = option_list),
-  # args = c("--cond1=wt",
-  #         "--cond2=NSUN2",
-  #         "--split=all",
-  #         "--column=sprinzl",
-  # #        "--show_introns",
-  # #          "--title=isodecoder: {amino_acid}-{anti_codon}",
-  #         "--sort",
+  # args = c("--cond1=WT",
+  #          "--cond2=NSUN2",
+  #          "--score=MDI_subsampled",
+  #          "--split=all",
+  #          "--column=sprinzl",
+  #          "--show_introns",
+  # #         "--title=isodecoder: {amino_acid}-{anti_codon}",
+  # #         "--sort",
   # #         "--show_coverage",
-  #         "--left=23",
-  #         "--coverages=/beegfs/prj/tRNA_Francesca_Tuorto/data/FT_tRNA_custom_2_biol_reps/merged_cov.txt",
-  #         "--scale_by_cov",
-  #         "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_mods_map.tsv",
-  # #          #"--hide_mods",
+  #          "--left=23",
+  # #        "--coverages=/beegfs/prj/tRNA_Francesca_Tuorto/data/FT_tRNA_custom_2_biol_reps/merged_cov.txt",
+  # #        "--scale_by_cov",
+  #          "--sprinzl=/beegfs/homes/mpiechotta/git/QutRNA/data/euk_sprinzl.txt",
+  # #         "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_modomics_sprinzl.tsv",
+  # #         "--hide_mods",
   # #         "--crop",
   # #        "--flag=Homo_sapiens_tRNA-Tyr-GTA-5-4:2",
-  #         "--output=~/tmp/plot_score",
-  #        "--remove_prefix=Homo_sapiens_",
+  #          "--output=~/tmp/plot_score",
+  #          "--remove_prefix=Homo_sapiens_",
   # #          #"--remove_prefix=Mus_musculus_",
-  #         "scores_sprinzl-mods.tsv"),
+  #         "/beegfs/prj/tRNA_Francesca_Tuorto/data/20250115_FT_HCT116_tRNA_RNA004/qutrna/nuclear_trnas/output/pass_semi-global_filter-reads-strict/results/jacusa2/cond1~WT/cond2~NSUN2/scores_sprinzl.tsv"),
   positional_arguments = TRUE
 )
 stopifnot(!is.null(opts$options$output))
@@ -394,6 +429,13 @@ plot_main <- function(df) {
     title <- gsub("\\{cond2\\}", opts$options$cond2, title)
     p <- p + ggtitle(title)
   }
+
+  #p <- p +
+  #  geom_tile(mapping = aes(x = position, y = Ref),
+  #            data = MARK |>
+  #              filter(condition == opts$options$cond2) |>
+  #              inner_join(df, by = join_by(aa == amino_acid, position == sprinzl)) |> select(Ref, position, score),
+  #            colour = "red", width = 1, height = 1)
 
   p
 }

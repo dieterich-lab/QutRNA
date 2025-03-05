@@ -56,13 +56,40 @@ properties:
   preprocess:
     type: object
     properties:
-      filter:
-        type: string
-      calmd:
+      samtools:
+        type: object
+        properties:
+          filter:
+            type: string
+          calmd:
+            type: boolean
+        default:
+          filter: "-F 3328"
+          calmd: true
+      read_length:
+        type: object
+        properties:
+          min:
+            type: integer
+          max:
+            type: integer
+        default:
+          min: 0
+          max: 0
+      alignment_length:
+        type: object
+        properties:
+          min:
+            type: integer
+          max:
+            type: integer
+        default:
+          min: 0
+          max: 0
+      trim_cigar:
         type: boolean
-    default:
-      filter: "-F 3328"
-      calmd: true
+        default: false
+    default: {}
   params:
     type: object
     properties:
@@ -72,6 +99,9 @@ properties:
       min_aln_score:
         type: integer
         description: Minimum alignment score to considert for calibration
+    default:
+      precision: 0.99
+      min_aln_score: 10
     required:
       - precision
       - min_aln_score

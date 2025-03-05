@@ -1,27 +1,3 @@
-rule samtools_preprocess_bam:
-  input: bam="data/bams/{filename}.bam",
-         bai="data/bams/{filename}.bam.bai",
-         ref=REF_FASTA
-  output: "results/bams/preprocessed/{filename}.bam",
-  params:
-    filter=config["preprocess"]["filter"],
-    calmd=config["preprocess"]["calmd"],
-  log: "logs/samtools/preprocessed/{filename}.log"
-  run:
-    if not params.filter and not params.calmd:
-      cmd = "ln -s {input.bam} {output}"
-      shell("( " + cmd + " > {output} ) 2> {log}")
-    else:
-      filter_cmd = "samtools view {params.filter} -b {input.bam}"
-
-      cmds = [filter_cmd, ]
-      if params.calmd:
-        calmd_cmd = "samtools calmd -b /dev/stdin {input.ref}"
-        cmds.append(calmd_cmd)
-      cmd = " | ".join(cmds)
-      shell("( " + cmd + " > {output} ) 2> {log}")
-
-
 rule samtools_index:
   input: "{prefix}.sorted.bam",
   output: "{prefix}.sorted.bam.bai",
@@ -34,6 +10,18 @@ rule samtools_index:
   """
 
 
+rule samtools_stats:
+  input: "{prefix}.bam",
+  output: "{prefix}.stats",
+  conda: "qutrna",
+  resources:
+    mem_mb=2000
+  log: "logs/samtools/stats/{prefix}.log",
+  shell: """
+    samtools stats {input:q} > {output:q} 2> {log:q}
+  """
+
+
 rule samtools_coverage:
   input: "{prefix}.bam",
   output: "{prefix}_coverage.tsv",
@@ -43,6 +31,18 @@ rule samtools_coverage:
   log: "logs/samtools/coverage/{prefix}.log",
   shell: """
     samtools coverage {input:q} > {output:q} 2> {log:q}
+  """
+
+
+rule samtools_read_count:
+  input: "{prefix}.bam",
+  output: "{prefix}_read_count.txt",
+  conda: "qutrna",
+  resources:
+    mem_mb=2000
+  log: "logs/samtools/read_count/{prefix}.log",
+  shell: """
+    samtools view -c {input:q} > {output:q} 2> {log:q}
   """
 
 
@@ -78,7 +78,12 @@ def _samtools_merge_input(wildcards):
     if READS == "fastq":
         fname = f"results/bams/final/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
     elif READS == "bam":
-        fname = f"results/bams/preprocessed/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
+        i = len(FILTERS_APPLIED)
+        if i == 0:
+          fname = f"data/bams/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
+        else:
+          filter_ = FILTERS_APPLIED[i - 1]
+          fname = f"results/bams/preprocessed/{filter_}/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
     else:
       raise Exception()
     fnames.append(fname)

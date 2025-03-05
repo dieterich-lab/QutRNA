@@ -46,6 +46,18 @@ wildcard_constraints:
   BC="|".join(["pass", "fail", "merged", "unknown"]),
 
 
+def fname2sample(fname):
+  r = re.search("/sample~([^~/]+)", fname)
+  if r:
+    return r.group(1)
+
+
+def fname2subsample(fname):
+  r = re.search("/subsample~([^~/]+)", fname)
+  if r:
+    return r.group(1)
+
+
 def create_include(name, input, output, params):
   rule:
     name: f"dyn_include_{name}"
@@ -169,3 +181,93 @@ rule remove_trnas:
         {input:q} \
         2> {log:q}
   """
+
+
+def _collect_read_counts_input(wildcards):
+  t2fnames = {}
+  for sample in SAMPLES:
+    df = TBL.loc[[sample]]
+    # collect subsamples
+    for row in df.itertuples(index=False):
+      if not hasattr(row, "bam"):
+        raise Exception("Not implemented yet") # TODO implement, when BAM not available
+
+
+      t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_read_count.txt") # TODO what if no base calling
+      for read_type in FILTERS_APPLIED:
+        t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_read_count.txt") # TODO what if no base calling
+
+  return t2fnames
+
+
+rule collect_read_counts:
+  input: unpack(_collect_read_counts_input)
+  output: "results/read_counts.tsv"
+  run:
+    dfs = []
+    for read_type, fnames in input.items():
+      for fname in fnames:
+        df = pd.read_csv(fname, sep="\t", header=None, names=["read_count"])
+
+        df["read_type"] = read_type
+        df[["sample", "subsample", "base_calling"]] = ""
+        sample = fname2sample(fname)
+        df["sample"] = sample
+        df["subsample"] = fname2subsample(fname)
+        df["base_calling"] = re.search("/([^/]+).sorted_read_count.txt$", fname).group(1)
+        df["condition"] = TBL.loc[[sample]]["condition"].unique()[0]
+        df["fname"] = fname
+
+        dfs.append(df)
+    df = pd.concat(dfs, ignore_index=True)
+    df.to_csv(output[0], sep="\t", index=False)
+
+
+rule cut_samtools_stats:
+  input: "{prefix}.stats",
+  output: temp("{prefix}_stats_{type}.tsv"),
+  conda: "qutrna",
+  resources:
+    mem_mb=2000
+  shell: """
+    grep "^{wildcards.type}" {input:q} | cut -f 2- > {output:q}
+  """
+
+
+def _collect_samtools_input(wildcards):
+  t2fnames = {}
+  for sample in SAMPLES:
+    df = TBL.loc[[sample]]
+    # collect subsamples
+    for row in df.itertuples(index=False):
+      if not hasattr(row, "bam"):
+        raise Exception("Not implemented yet") # TODO implement, when BAM not available
+
+      t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_stats_{wildcards.type}.tsv") # TODO what if no base calling
+      for read_type in FILTERS_APPLIED:
+        t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_stats_{wildcards.type}.tsv") # TODO what if no base calling
+
+  return t2fnames
+
+
+rule collect_samtools_stats:
+  input: unpack(_collect_samtools_input)
+  output: "results/samtools/stats/{type}.tsv",
+  run:
+    type2cols = {
+        "RL": ["read_length", "count"],}
+    dfs = []
+    for read_type, fnames in input.items():
+      for fname in fnames:
+        df = pd.read_csv(fname, sep="\t", header=None, names=type2cols[wildcards.type])
+        sample = fname2sample(fname)
+        df["read_type"] = read_type
+        df["sample"] = sample
+        df["subsample"] = fname2subsample(fname)
+        df["base_calling"] = re.search("^(.+).sorted.+$", os.path.basename(fname)).group(1)
+        df["condition"] = TBL.loc[[sample]]["condition"].unique()[0]
+        df["fname"] = fname
+        dfs.append(df)
+
+    df = pd.concat(dfs, ignore_index=True)
+    df.to_csv(output[0], sep="\t", index=False)

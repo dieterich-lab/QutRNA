@@ -1,0 +1,4 @@
+preprocess:
+  read_length:
+    min: 100
+    max: 150

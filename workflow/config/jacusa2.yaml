@@ -1,0 +1,4 @@
+jacusa2:
+  jar: java -jar ~/bin/JACUSA_v2.1.1.12-filter-bg.jar
+  opts: -u DirMult:subsampleRuns=100 -m 1 -q 7 -D -i -P1 FR-SECONDSTRAND -P2 FR-SECONDSTRAND
+  threads: 10

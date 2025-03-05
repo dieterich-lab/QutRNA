@@ -75,3 +75,31 @@ rule plot_heatmap:
           --output {output:q} {input.scores:q} \
           {params.opts} ) 2> {log:q}
   """
+
+
+rule plot_read_counts:
+  input: "results/read_counts.tsv",
+  output: "results/plots/read_counts.pdf",
+  conda: "qutrna",
+  resources:
+    mem_mb=10000
+  log: "logs/plot/read_counts.log",
+  shell: """
+    Rscript {workflow.basedir}/scripts/plot_read_counts.R \
+         --output {output:q} {input:q} \
+         2> {log:q}
+  """
+
+
+rule plot_read_length:
+  input: "results/samtools/stats/RL.tsv",
+  output: "results/plots/read_length.pdf",
+  conda: "qutrna",
+  resources:
+    mem_mb=10000
+  log: "logs/plot/read_length.log",
+  shell: """
+    Rscript {workflow.basedir}/scripts/plot_read_length.R \
+         --output {output:q} {input:q} \
+         2> {log:q}
+  """

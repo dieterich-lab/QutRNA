@@ -2,6 +2,7 @@ import shutil
 import subprocess
 import yaml
 
+import pandas as pd
 from snakemake.utils import validate
 
 
@@ -11,10 +12,11 @@ VERSION = "2.0.0-DEV-1"
 validate(config, "schemas/config.yaml")
 pepfile: config["pepfile"]
 pepschema: "schemas/pep.yaml"
-workdir: pep.config["qutrna"]["output_dir"]
+
 
 include: "rules/common.smk"
 include: "rules/samtools.smk"
+include: "rules/filter.smk"
 include: "rules/parasail.smk"
 include: "rules/jacusa2.smk"
 include: "rules/sec_structure.smk"
@@ -73,6 +75,15 @@ def target_all():
   return targets
 
 
+def target_read_plots():
+  targets = [
+      "results/plots/read_counts.pdf",
+      "results/plots/read_length.pdf"
+  ]
+
+  return targets
+
+
 def target_info():
   targets = [
       "info/config.yaml",
@@ -90,11 +101,11 @@ def target_info():
 
 
 rule all:
-  input: target_all() + target_info()
+  input: target_all() + target_info() + target_read_plots()
 
 
 rule alignment:
-  input: target_alignment() + target_info()
+  input: target_alignment() + target_info() + target_read_plots()
 
 
 rule sprinzl:
@@ -103,6 +114,10 @@ rule sprinzl:
 
 rule trna_plots:
   input: target_trna_plots() + target_info()
+
+
+rule read_count_plots:
+  input: target_read_plots() + target_info()
 
 
 rule info:
