@@ -29,10 +29,12 @@ if "mods" in pep.config["qutrna"]:
 SCORES += ".tsv"
 
 
+# FIXME nested cols
 __nested_cols = []
 TBL = pep.sample_table
 for c in ["subsample_name", "base_calling", READS]:
-  if any(isinstance(o, list) for o in TBL[c]):
+  i = [isinstance(o, list) for o in TBL[c]]
+  if any(i):
     __nested_cols.append(c)
 if __nested_cols:
   TBL = TBL.explode(__nested_cols)

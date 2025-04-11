@@ -2,6 +2,7 @@ import shutil
 import subprocess
 import yaml
 
+import numpy as np
 import pandas as pd
 from snakemake.utils import validate
 

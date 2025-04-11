@@ -24,8 +24,10 @@ option_list <- list(
 
 opts <- optparse::parse_args(
   optparse::OptionParser(option_list = option_list),
-  #args = c("--fasta=../data/S.pombe.fasta",
-  #         "S.pombe_tRNAAsp_IVT-Q/JACUSA2.out"),
+  # args = c("-s", "MDI::mismatch_score+deletion_score+insertion_score,MDI_subsampled::norm_mismatch_score_subsampled+norm_deletion_score_subsampled+norm_insertion_score_subsampled",
+  #         "-f", "data/ref.fasta",
+  #         "-o", "~/tmp/test.tsv",
+  #         "/beegfs/prj/tRNA_Berlin/isabel/20240820_AJ_Ecoli_ctrls_tRNA_RNA002_cust/qutrna/queF_2__vs__NC_plus_N3/output-qutrna2/results/jacusa2/cond1~queF_2/cond2~NC_plus_N3/JACUSA2.out"),
   positional_arguments = TRUE
 )
 
@@ -247,12 +249,15 @@ res_to_r <- function(res) {
 
 # load JACUSA2 output and add... reference context
 res <- JACUSA2helper::read_result(opts$args,
-                                unpack = c("score_subsampled", "score_downsampled",
-                                           "reads",
-                                           "insertion_score", "deletion_score",
-                                           "insertion_score_subsampled", "deletion_score_subsampled",
-                                           "deletion_score_downsampled", "insertion_score_downsampled"))
+                                  unpack = c("score_subsampled", "score_downsampled",
+                                             "reads",
+                                             "insertion_score", "deletion_score",
+                                             "insertion_score_subsampled", "deletion_score_subsampled",
+                                             "deletion_score_downsampled", "insertion_score_downsampled"))
+
 r <- res_to_r(res)
+
+
 
 # parse options and create output container
 stats <- parse_stats(opts$options$stat)
