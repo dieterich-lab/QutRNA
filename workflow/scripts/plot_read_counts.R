@@ -32,6 +32,6 @@ p <- df |>
   coord_flip() +
   theme_bw() +
   theme(legend.position = "bottom") +
-  facet_grid(base_calling ~ ., labeller = label_both)
+  facet_grid(base_calling ~ ., labeller = label_both, scales = "free_y")
 
 ggsave(opts$options$output, p, width = 8, height = 6)

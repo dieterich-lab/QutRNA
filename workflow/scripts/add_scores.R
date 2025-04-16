@@ -2,19 +2,218 @@
 
 # Process JACUSA2 scores and add additional data.
 library(GenomicRanges)
-library(JACUSA2helper)
+library(dplyr)
 library(SummarizedExperiment)
 
-WIDTH <- 5
+##
+
+.EMPTY <- "*"
+.BASES <- c("A", "C", "G", "T")
+
+.find_conditions <- function(cond_repl) {
+  cond_count <- 1
+  max_conds <- length(cond_repl)
+  
+  while (cond_count <= max_conds) {
+    cond_count_nchar <- nchar(cond_count)
+    cond <- substring(cond_repl, first = 1, last = cond_count_nchar)
+    repl <- substring(cond_repl, first = cond_count_nchar + 1)
+    if (all(nchar(cond) > 0 & nchar(repl) > 0) && 
+        length(unique(cond)) == cond_count) {
+      return(cond_count)
+    }
+    cond_count <- cond_count + 1
+  }
+  
+  return(NULL)
+}
+
+guess_sample_info <- function(raw_header_names) {
+  prefixes <- c("bases", "arrest_bases")
+  
+  for (prefix in prefixes) {
+    prefix_regex <- paste0("^", prefix, "[0-9]+")
+    i <- grepl(prefix_regex, raw_header_names)
+    conditions <- .find_conditions(gsub(prefix, "", raw_header_names[i]))
+    if (is.null(conditions)) {
+      next
+    }
+    prefix_regex = paste0("^(", paste0(prefix, collapse = "|"), ")")
+    condition_regex = paste0("([0-9]{", nchar(conditions), "})")
+    replicate_regex = "([0-9]+)"
+    m <- do.call(
+      rbind, 
+      regmatches(raw_header_names[i],
+                 regexec(paste0(prefix_regex,
+                                condition_regex,
+                                replicate_regex),
+                         raw_header_names[i]))
+    )
+    df <- as.data.frame(m)
+    colnames(df) <- c("matched_column", "matched_prefix", "condition", "replicate")
+    df$condition <- as.integer(df$condition)
+    df$replicate <- as.integer(df$replicate)
+    df$sample <- paste0("bam_", df$condition, df$replicate)
+    
+    return(df)
+  }
+  
+  stop("Could not guess 'sample_info'!")
+}
+
+.fill_empty <- function(df, cols, new_cols) {
+  new_value <- paste0(rep(0, length(new_cols)), collapse = ",")
+  
+  for (col in cols) {
+    i <- df[, col] == .EMPTY | df[, col] == ""
+    if (length(i)) {
+      df[i, col] <- new_value
+    }
+  }
+  
+  return(df)
+}
+
+.unpack <- function(s, new_cols, sep = ",") {
+  l <- lapply(data.table::tstrsplit(s, split = sep, fixed = TRUE), as.numeric)
+  names(l) <- new_cols
+  
+  return(tibble::as_tibble(l))
+}
+
+.unpack_cols <- function(df, cols, samples, new_cols) {
+  df <- .fill_empty(df, cols, new_cols)
+  unpacked <- lapply(df[cols], .unpack, new_cols = new_cols)
+  names(unpacked) <- samples
+  
+  return(tibble::as_tibble(unpacked))
+}
+
+# read extended JACUSA2 output and convert to data.frame
+read_result <- function(file, tmpdir = tempdir(), showProgress = FALSE, ...) {
+  # if url download first
+  if (grepl("ftp://|http://", file)) {
+    # partly adopted from data.table::fread
+    tmpFile <- tempfile(tmpdir = tmpdir)
+    if (!requireNamespace("curl", quietly = TRUE)) 
+      stop("Input URL requires https:// connection for which fread() requires 'curl' package which cannot be found. Please install 'curl' using 'install.packages('curl')'.")
+    
+    tmpFile = tempfile(fileext = paste0(".", tools::file_ext(file)), tmpdir = tmpdir)
+    curl::curl_download(file, tmpFile, mode = "wb", quiet = !showProgress)
+    file = tmpFile
+    on.exit(unlink(file), add = TRUE)
+  }
+  
+  # pre process file
+  # parse comments ^(#|##) to determine result/method type and number of conditions  
+  fun <- ifelse(grepl('\\.gz$', file), base::gzfile, base::file)
+  con <- fun(file, "r")
+  skip_lines <- 0
+  header_names <- NULL
+  jacusa_header <- c()
+  while (TRUE) {
+    line = readLines(con, n = 1)
+    # quit reading: nothing to read or first no header line 
+    if (length(line) == 0 || length(grep("^#", line)) == 0) {
+      break
+    }
+    # count header lines to ignore
+    skip_lines <- skip_lines + 1
+    
+    if (length(grep("^#contig", line)) > 0) {
+      # parse and store header
+      # fix header: #contig -> contig
+      header_names <- sub("^#", "", line);
+      header_names <- unlist(base::strsplit(header_names, split = "\t", fixed = TRUE))
+    } else if (length(grep("^##", line)) > 0) {
+      jacusa_header <- c(gsub("^##", "", line), jacusa_header)
+    }
+    
+  }
+  # finished pre-processing
+  close(con)
+  
+  # check that a header could be parsed
+  if (is.null(header_names)) {
+    stop("No header line for file: ", file)
+  }
+  
+  # read data
+  data <- data.table::fread(
+    file, 
+    skip = skip_lines, 
+    sep = "\t",
+    header = FALSE, 
+    ...
+  )  
+  colnames(data) <- header_names
+  # convert to numeric
+  i <- data[, 5] == "*"
+  if (any(i)) {
+    data[i, 5] <- NA
+    data[, 5] <- as.numeric(data[, 5])
+  }
+
+  return(as.data.frame(data))
+}
+
+.to_se <- function(df) {
+  header_names <- colnames(df)
+  sample_info <- guess_sample_info(colnames(df))
+  assay_cols <- 
+  assays <- list()
+  # add bases as an assay
+  cols <- paste0("bases", sample_info$condition, sample_info$replicate)
+  assays[["bases"]] <- .unpack_cols(df, cols, sample_info$sample, .BASES)
+  assay_cols <- c(cols)
+  
+  for (prefix in c("reads", "insertions", "deletions")) { # FIXME add more keys
+    # FIXME implement - start JACUSA2 2.1.5
+    browser()
+  }
+
+  colData <- data.frame(condition = paste0("condition~", sample_info$condition))
+  row.names(colData) <- names(sample_info$sample)
+
+  # process scores  
+  scores <- c("score", "insertion_score", "deletion_score")
+  scores <- c(paste0(scores, "_subsampled"))
+  for (score in intersect(colnames(df), scores)) {
+    df[[score]] <- strsplit(df[[score]], ",") |>
+      lapply(as.numeric) |>
+      lapply(unlist) |>
+      clean_score()
+  }
+
+  metadata <- list()
+  metadata[["command"]] <- "UNKNOWN"
+  
+  gr <- GenomicRanges::GRanges(
+    seqnames = df$contig,
+    ranges = IRanges::IRanges(start = df$start + 1, end = df$end),
+    strand = GenomicRanges::strand(gsub("\\.", "*", df$strand))
+  )
+  df[c("contig", "start", "end", "strand", assay_cols)] <- NULL
+  GenomicRanges::mcols(gr) <- df
+
+  se <- SummarizedExperiment(assays = assays,
+                             rowRanges = gr,
+                             colData = colData,
+                             metadata = metadata)
+  
+  se
+}
+
+
+
+# TODO
+# bases
+# reads
+# print missing keys
+
+##
+
 option_list <- list(
-  optparse::make_option(c("-f", "--fasta"),
-                        type = "character",
-                        help = "FASTA sequence"),
-  optparse::make_option(c("-w", "--width"),
-                        type = "numeric",
-                        help = paste0("Width of sequence context. Default: ",
-                                      WIDTH),
-                        default = WIDTH),
   optparse::make_option(c("-s", "--stat"),
                         help = "Define statistics"),
   optparse::make_option(c("-o", "--output"),
@@ -24,17 +223,16 @@ option_list <- list(
 
 opts <- optparse::parse_args(
   optparse::OptionParser(option_list = option_list),
-  # args = c("-s", "MDI::mismatch_score+deletion_score+insertion_score,MDI_subsampled::norm_mismatch_score_subsampled+norm_deletion_score_subsampled+norm_insertion_score_subsampled",
-  #         "-f", "data/ref.fasta",
-  #         "-o", "~/tmp/test.tsv",
-  #         "/beegfs/prj/tRNA_Berlin/isabel/20240820_AJ_Ecoli_ctrls_tRNA_RNA002_cust/qutrna/queF_2__vs__NC_plus_N3/output-qutrna2/results/jacusa2/cond1~queF_2/cond2~NC_plus_N3/JACUSA2.out"),
+  args = c("-s", "MDI::mismatch_score+deletion_score+insertion_score,MDI_subsampled::norm_mismatch_score_subsampled+norm_deletion_score_subsampled+norm_insertion_score_subsampled",
+           "-o", "~/tmp/test.tsv",
+           "/beegfs/prj/tRNA_Berlin/isabel/20240820_AJ_Ecoli_ctrls_tRNA_RNA002_cust/qutrna/queF_2__vs__NC_plus_N3/output-qutrna2/results/jacusa2/cond1~queF_2/cond2~NC_plus_N3/JACUSA2.out"),
   positional_arguments = TRUE
 )
 
-stopifnot(!is.null(opts$options$fasta))
 stopifnot(!is.null(opts$options$output))
 stopifnot(!is.null(opts$options$stat))
 stopifnot(length(opts$args) == 1)
+
 
 summarise_ratio <- function(r, get_ratios, f) {
   by_conds <- split(colData(r), colData(r)$condition) |>
@@ -61,9 +259,9 @@ summarise_ratio <- function(r, get_ratios, f) {
 norm_score <- function(r, score, score_sampled) {
   scores <- rowData(r)[[score]]
   scores_subsampled <- rowData(r)[[score_sampled]]
-  runs <- lapply(scores_subsampled, length) |>
-    unlist() |>
-    unique()
+  # runs <- lapply(scores_subsampled, length) |>
+  #   unlist() |>
+  #   unique()
   # stopifnot(length(runs) == 1 || runs == 0)
 
   new_scores <- mapply(function(observed, subsampled) { return(observed - max(subsampled, na.rm = TRUE)) },
@@ -109,7 +307,7 @@ PARSE_COLS <- list("mismatch_score" = function(r) { return(rowData(r)$score) },
                    "mean_mismatch_score_downsampled" = function(r) { return(summarise_score(r, "score_downsampled", mean)) },
                    "mean_insertion_score_downsampled" = function(r) { return(summarise_score(r, "insertion_score_downsampled", mean)) },
                    "mean_deletion_score_downsampled" = function(r) { return(summarise_score(r, "deletion_score_downsampled", mean)) },
-                   #
+                   # TODO check
                    "mean_non_ref_ratio" = function(r) { return(summarise_ratio(r, non_ref_ratio, rowMeans)) },
                    "mean_insertion_ratio" = function(r) { return(summarise_ratio(r, insertion_ratio, rowMeans)) } ,
                    "mean_deletion_ratio" = function(r) { return(summarise_ratio(r, deletion_ratio, rowMeans)) })
@@ -151,14 +349,14 @@ replace_prefix <- function(df, r, new_prefix) {
 }
 
 parse_result <- function(r, stats) {
-  cols <- c("ref", "ref_context")
-  df <- rowRanges(r)[, c("ref", "ref_context")] |>
+  cols <- c("ref")
+  df <- rowRanges(r)[, c("ref")] |>
     as.data.frame() |>
-    dplyr::rename(trna = seqnames, pos = start) |>
-    dplyr::select(trna, pos, strand, ref, ref_context)
+    rename(trna = seqnames, sequence_position = start) |>
+    select(all_of(c("trna", "sequence_position", "strand", "ref")))
 
   # add intermediate columns
-  reads <- replace_prefix(assays(r)$reads, r, "coverage")
+  reads <- replace_prefix(assays(r)$reads, r, "reads")
   cols <- c(cols, colnames(reads))
   df <- cbind(df, reads)
   for (col in pick_cols(stats$stat)) {
@@ -170,13 +368,6 @@ parse_result <- function(r, stats) {
       df[, col] <- f(r)
     }
   }
-
-  # score_cols <- c("score", "score_subsampled", "score_downsampled",
-  #                 "deletion_score", "deletion_score_subsampled", "deletion_score_downsampled",
-  #                 "insertion_score", "insertion_score_subsampled", "insertion_score_downsampled")
-  #for (col in score_cols) {
-  #  df[, col] <- rowRanges(r)[, col]
-  #}
 
   # add final columns
   for (i in rownames(stats)) {
@@ -194,80 +385,16 @@ parse_result <- function(r, stats) {
   df
 }
 
-res_to_r <- function(res) {
-  rowRanges <- res[, c("score", "filter", "ref",
-                       "insertion_score", "deletion_score",
-                       "score_subsampled", "deletion_score_subsampled", "insertion_score_subsampled",
-                       "score_downsampled", "deletion_score_downsampled", "insertion_score_downsampled")]
-  mcols(rowRanges)[, "ref_context"] <- "N"
+df <- read_result(opts$args)
+se <- .to_se(df)
 
-  assays <- list()
-  bases <- res$bases
-  l <- list()
-  condition <- c()
-  for (cond in names(bases)) {
-    s <- gsub("cond", "bam_", cond)
-    r <- length(bases[[cond]])
-    b <- bases[[cond]]
-    s <- paste0(s, "_", seq_len(r))
-    names(b) <- s
-    l <- append(l, b)
-    condition <- c(condition, rep(cond, r))
-  }
-  assays[["bases"]] <- l |>
-    tibble::as_tibble()
-
-  colData <- data.frame(condition = condition)
-  row.names(colData) <- names(assays[["bases"]])
-
-  scores <- c("score", "insertion_score", "deletion_score")
-  scores <- c(paste0(scores, "_subsampled"),
-              paste0(scores, "_downsampled"))
-  for (score in scores) {
-    mcols(rowRanges)[[score]] <- strsplit(mcols(rowRanges)[[score]], ",") |>
-        lapply(as.numeric) |>
-        lapply(unlist) |>
-        clean_score()
-  }
-
-  l <- strsplit(res$reads, split = ",", fixed = TRUE) |>
-    lapply(as.numeric)
-  d <- do.call(rbind, l)
-  colnames(d) <- rownames(colData)
-  assays[["reads"]] <- as.data.frame(d)
-
-  metadata <- list()
-  metadata[["command"]] <- "UNKNOWN"
-
-  se <- SummarizedExperiment(assays = assays,
-                             rowRanges = rowRanges,
-                             colData = colData,
-                             metadata = metadata)
-
-  se
-}
-
-# load JACUSA2 output and add... reference context
-res <- JACUSA2helper::read_result(opts$args,
-                                  unpack = c("score_subsampled", "score_downsampled",
-                                             "reads",
-                                             "insertion_score", "deletion_score",
-                                             "insertion_score_subsampled", "deletion_score_subsampled",
-                                             "deletion_score_downsampled", "insertion_score_downsampled"))
-
-r <- res_to_r(res)
-
-
-
-# parse options and create output container
+# # parse options and create output container
 stats <- parse_stats(opts$options$stat)
 # calculate stats and create output
-df <- parse_result(r, stats)
-df$Ref <- df$trna
-df$Pos3 <- df$pos
-
-write.table(df,
-            opts$options$output,
-            quote = FALSE,
-            sep = "\t",
-            col.names = TRUE, row.names = FALSE)
+df <- parse_result(se, stats)
+ 
+#write.table(df,
+#            opts$options$output,
+#            quote = FALSE,
+#            sep = "\t",
+#            col.names = TRUE, row.names = FALSE)

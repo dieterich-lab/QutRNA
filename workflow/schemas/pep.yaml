@@ -42,7 +42,7 @@ properties:
           coords:
             type: string
             enum: ["seq", "sprinzl"]
-            description: Coordinatate system
+            description: Coordinate system
           mods:
             type: object
             description: Known modifications
@@ -85,7 +85,6 @@ properties:
           - ref_fasta
           - linker5
           - linker3
-            # TODO - cm or sprinzl mapping
     required:
       - qutrna
 required:

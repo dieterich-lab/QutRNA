@@ -1,7 +1,5 @@
 #!/usr/bin/env Rscript
 
-library(magrittr)
-
 option_list <- list(
   optparse::make_option(c("-m", "--mods"),
                         type = "character",
@@ -24,7 +22,7 @@ stopifnot(!is.null(opts$options$output))
 stopifnot(!is.null(opts$options$mods))
 stopifnot(length(opts$args) == 1)
 
-mods <- data.table::fread(opts$options$mods, header = TRUE, sep = "\t") %>%
+mods <- data.table::fread(opts$options$mods, header = TRUE, sep = "\t") |>
   as.data.frame()
 
 result <- read.table(opts$args, header = TRUE, sep = "\t")
@@ -36,6 +34,6 @@ if (opts$options$sprinzl) {
 }
 df <- dplyr::left_join(result, mods, by = by)
 
-df %>% write.table(opts$options$output,
-                   quote=FALSE, sep = "\t",
-                   col.names = TRUE, row.names = FALSE)
+df |> write.table(opts$options$output,
+                  quote=FALSE, sep = "\t",
+                  col.names = TRUE, row.names = FALSE)

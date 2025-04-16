@@ -28,6 +28,8 @@ if "mods" in pep.config["qutrna"]:
   SCORES += "-mods"
 SCORES += ".tsv"
 
+# FIXME
+# sprinzl CM or seq2sprinzl mapping
 
 # FIXME nested cols
 __nested_cols = []
@@ -193,8 +195,6 @@ def _collect_read_counts_input(wildcards):
     for row in df.itertuples(index=False):
       if not hasattr(row, "bam"):
         raise Exception("Not implemented yet") # TODO implement, when BAM not available
-
-
       t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_read_count.txt") # TODO what if no base calling
       for read_type in FILTERS_APPLIED:
         t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_read_count.txt") # TODO what if no base calling
