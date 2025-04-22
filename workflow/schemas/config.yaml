@@ -1,4 +1,4 @@
-$schema: https://json-schema.org/draft/2020-12/schema
+$schema: https://json-schema.org/draft/2021-12/schema
 $id: https://github.com/dieterich-lab/QutRNA/workflow/schemas/config.yaml
 title: QutRNA
 description: Config for tRNA mapping and modification discovery

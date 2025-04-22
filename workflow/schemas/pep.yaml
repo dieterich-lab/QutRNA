@@ -31,9 +31,6 @@ properties:
       qutrna:
         type: object
         properties:
-          output_dir:
-            type: string
-            description: Output directory
           cm:
             type: string
           seq_to_sprinzl:
@@ -85,7 +82,6 @@ properties:
         default:
           coords: sprinzl
         required:
-          - output_dir
           - ref_fasta
           - linker5
           - linker3

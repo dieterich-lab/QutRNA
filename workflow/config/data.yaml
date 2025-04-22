@@ -1,18 +1,2 @@
 pep_version: 2.0.0
 sample_table: sample_table.tsv
-
-qutrna:
-  output_dir: # output directory
-  cm: # path to cm file
-  ref_fasta: # path to reference FASTA sequence
-  ref_fasta_prefix: # (optional) remove prefix from tRNAs in plots to save image space
-coords: # coordinate system to use for modifications and plots: seq|sprinzl
-  mods:
-    file: # path to modifications
-    abbrevs: # (optional) path to abbreviation of modifications
-  linker5: # 5' linker length
-  linker3: # 3' linker length
-  remove_trnas: # (optional) remove tRNAs from secondary structure alignment and visualisation. BUT they will be utilized for parasail alignment!
-  contrasts: # define contrats based on column "conditon" in sample_table
-    - cond1: # name of 1st condition (make sure this a value from column "condition" in sample_table)
-      cond2: # name of 2nd condition (make sure this a value from column "condition" in sample_table)
