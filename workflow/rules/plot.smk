@@ -9,10 +9,10 @@ def _plot_heatmap_opts(wildcards, input):
   plot = plots[wildcards.plot_id]
 
   col_mapping = {
-      "seq": "Pos3",
+      "seq": "seq_position",
       "sprinzl": "sprinzl"}
 
-  opts.append("--column " +
+  opts.append("--position_column " +
               col_mapping[pep.config["qutrna"]["coords"]])
 
   opts.append("--split " + plot["trnas"])
@@ -25,21 +25,22 @@ def _plot_heatmap_opts(wildcards, input):
   if abbrevs:
     opts.append("--modmap " + abbrevs)
 
-  opts.append("--left " + str(pep.config["qutrna"]["linker5"]))
+  opts.append("--five_adapter " + str(pep.config["qutrna"]["linker5"]))
   if "ref_fasta_prefix" in pep.config["qutrna"]:
     opts.append("--remove_prefix=" + pep.config["qutrna"]["ref_fasta_prefix"])
 
   for contrast in pep.config["qutrna"]["contrasts"]:
     if wildcards.COND1 == contrast["cond1"] and wildcards.COND2 == contrast["cond2"] and "flag" in contrast:
-      opts.append("--flag=" + ",".join(contrast["flag"]))
+      opts.append("--flag_positions=" + ",".join(contrast["flag"]))
 
+  # TODO
   if "coverages" in pep.config["qutrna"]:
-    opts.append("--coverages=" + input.coverages)
+    opts.append("--coverage_info=" + input.coverages)
 
   if "score" in plot:
-    opts.append("--score=" + plot["score"].split("::")[0])
+    opts.append("--score_column=" + plot["score"].split("::")[0])
   else:
-    opts.append("--score=" + DEFAULT_SCORE.split("::")[0])
+    opts.append("--score_column=" + DEFAULT_SCORE.split("::")[0])
 
   if "sprinzl" in pep.config["qutrna"]:
     opts.append("--sprinzl=" + input.sprinzl)
@@ -47,9 +48,10 @@ def _plot_heatmap_opts(wildcards, input):
   return " ".join(opts)
 
 
-# HOTFIX
 def _plot_heatmap_input(wildcards):
-  d = {"scores": "results/jacusa2/cond1~{COND1}/cond2~{COND2}/" + SCORES,}
+  d = {"scores": "results/jacusa2/cond1~{COND1}/cond2~{COND2}/" + SCORES,
+       "fasta": REF_FASTA,}
+  # FIXME
   if "coverages" in pep.config["qutrna"]:
     d["coverages"] = pep.config["qutrna"]["coverages"]
 
@@ -70,9 +72,10 @@ rule plot_heatmap:
   shell: """
     ( mkdir -p {output} && \
       Rscript {workflow.basedir}/scripts/plot_score.R \
-          --cond1 {wildcards.COND1:q} \
-          --cond2 {wildcards.COND2:q} \
-          --output {output:q} {input.scores:q} \
+          --condition1 {wildcards.COND1:q} \
+          --condition2 {wildcards.COND2:q} \
+          --ref_fasta {input.fasta:q} \
+          --output_dir {output:q} {input.scores:q} \
           {params.opts} ) 2> {log:q}
   """
 

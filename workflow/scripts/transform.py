@@ -18,13 +18,13 @@ def transform(sprinzl, output, linker5, jacusa2):
     sprinzl = pd.read_csv(sprinzl, sep="\t")
     jacusa = pd.read_csv(jacusa2, sep="\t")
 
-    i = sprinzl["id"].isin(jacusa["Ref"].unique())
+    i = sprinzl["id"].isin(jacusa["trna"].unique())
     sprinzl = sprinzl.loc[i, ["id", "seq_pos", "sprinzl"]]
 
-    jacusa["n_pos"] = jacusa["Pos3"] - linker5
+    jacusa["n_pos"] = jacusa["seq_position"] - linker5
     jacusa = (jacusa.merge(sprinzl,
                            how="left",
-                           left_on=("Ref", "n_pos" ),
+                           left_on=("trna", "n_pos" ),
                            right_on=("id", "seq_pos"),
                            indicator=True)
               .drop(columns=["n_pos", "seq_pos", "id"]))

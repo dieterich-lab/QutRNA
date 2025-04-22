@@ -89,6 +89,25 @@ properties:
       trim_cigar:
         type: boolean
         default: false
+      remove_multimappers:
+        type: object
+        properties:
+          keep_uniform_cigar:
+            type: boolean
+            default: false
+      overlap:
+        type: object
+        properties:
+          five_adapter_overlap:
+            type: number
+          trna_overlap:
+            type: number
+          three_adapter_overlap:
+            type: number
+          default:
+            five_adapter_overlap: 0
+            trna_overlap: 0
+            three_adapter_overlap: 0
     default: {}
   params:
     type: object
