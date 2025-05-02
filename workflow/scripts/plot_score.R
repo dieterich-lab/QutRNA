@@ -39,7 +39,7 @@ trna_label <- function(df, remove_prefix = "") {
   if (remove_prefix != "") {
     new_label <- gsub(remove_prefix, "", new_label)
   }
-  
+
   return(new_label)
 }
 
@@ -279,7 +279,7 @@ add_missing_values <- function(df, opts, cols = c("trna_label", "position")) {
 
 plot_coverage <- function(coverage_summary, xlab = "reads") {
   p <- coverage_summary |>
-    ggplot(aes(x = reads, y = trna_label, fill = condition)) +
+    ggplot(aes(x = reads, y = trna_label, colour = condition, fill = condition)) +
     scale_colour_manual(values = c("#bf568b", "#bcd357")) +
     scale_fill_manual(values = c("#bf568b", "#bcd357")) +
     scale_x_continuous(breaks = scales::breaks_pretty(3),
@@ -288,9 +288,9 @@ plot_coverage <- function(coverage_summary, xlab = "reads") {
     xlab(xlab) +
     theme_bw() +
     theme(plot.margin = margin(0, 0, 0, 0),
-          #axis.text.y = element_blank(),
+          # TODO axis.text.y = element_blank(),
           legend.position = "top",
-          text = element_text(family = "mono"),
+          # TODO text = element_text(family = "mono"),
           legend.title = element_blank(),
           legend.direction = "vertical",
           axis.title.y = element_blank())
@@ -329,7 +329,7 @@ plot_heatmap <- function(df, xlab = "position", harmonize_scaling = NULL) {
           axis.text.x = element_text(angle = 90, size = 8, vjust = 0.5, hjust = 1),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
-          text = element_text(family = "mono"),
+          # TODO text = element_text(family = "mono"),
           axis.title.y = element_blank(),
           plot.margin = margin(0, .5, 0, 0))
 
@@ -381,6 +381,67 @@ plot_heatmap <- function(df, xlab = "position", harmonize_scaling = NULL) {
   p
 }
 
+plot_extended <- function(df, coverage_summary, plot_args) {
+  p_score <- df |>
+    mutate(trna_label = "Score") |>
+    plot_heatmap(xlab = plot_args[["position_xlab"]],
+                 harmonize_scaling = plot_args[["harmonize_scaling"]]) +
+      theme(axis.text.x = element_blank(),
+            legend.position = "none",
+            axis.title.x = element_blank())
+  
+  p_read_cov <- df |> 
+    select(position, starts_with("reads_")) |>
+    tidyr::pivot_longer(cols = starts_with("reads_"), values_to = "reads") |>
+    mutate(condition = as.factor(stringr::str_match(name, "reads_(\\d+)_(\\d+)")[, 2]),
+           name = as.factor(name)) |>
+    ggplot(aes(x = position, y = reads, group = name, colour = condition, fill = condition)) +
+    ylab("Read coverage") +
+    geom_line() +
+    scale_y_continuous(breaks = scales::breaks_pretty(3),
+                       labels = scales::label_number(scale_cut = scales::cut_short_scale())) +
+    theme_bw() +
+    theme(panel.background = element_rect(fill = "white", color = "white"),
+          legend.position = "none",
+          panel.border = element_blank(),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          # TODO text = element_text(family = "mono"),
+          plot.margin = margin(0, .5, 0, 0))
+
+  p_ref <- df |> 
+    mutate(trna_label = "Reference") |>
+    ggplot(aes(x = position, y = trna_label, label = ref)) +
+    geom_text(size = 3) +
+    coord_equal() +
+    theme_bw() +
+    xlab(plot_args[["position_xlab"]]) + 
+    theme(panel.background = element_rect(fill = "white", color = "white"),
+          legend.position = "none",
+          panel.border = element_blank(),
+          # axis.text.x = element_blank(),
+          # axis.title.x = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          # TODO text = element_text(family = "mono"),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(angle = 90, size = 8, vjust = 0.5, hjust = 1),
+          plot.margin = margin(0, .5, 0, 0))
+
+  # TODO
+  # add non_ref_ratio
+  # add insertion_ratio
+  # add deletion_ratio
+  # add indels-sequence logo
+
+  # TODO add guide
+
+  
+  return(p_read_cov / p_score / p_ref  + plot_layout(nrow = 3, heights = unit(c(3, -1, -1), c("cm", "null", "null"))))
+}
+
 plot_combined <- function(df, coverage_summary, plot_args) {
   ncol <- 1
   widths <- c(8)
@@ -397,7 +458,7 @@ plot_combined <- function(df, coverage_summary, plot_args) {
   if (!is.null(coverage_summary)) {
     ncol <- ncol + 1
     widths <- c(widths, 2)
-    p <- p + guides(y.sec=guide_axis_label_trans(identity)) +
+    p <- p + guides(y.sec = guide_axis_label_trans(identity)) +
       plot_coverage(coverage_summary, plot_args[["coverage_xlab"]]) +
       theme(axis.text.y = element_blank())
   }
@@ -508,7 +569,15 @@ split_extended <- function(df, coverage_summary, output_dir, plot_args, process_
   }
 
   for (trna in trnas) {
-    # TODO
+    tmp_df <- l_df[[trna]]
+    tmp_coverage_summary <- l_coverage_summary[[trna]]
+    if (!is.null(process_args$sort_by_callback)) {
+      res <- process_args$sort_by_callback(tmp_df, tmp_coverage_summary)
+      tmp_df <- res$df
+      tmp_coverage_summary <- res$coverage_summary
+    }
+    p <- plot_extended(tmp_df, tmp_coverage_summary, plot_args)
+    browser()
   }
 }
 
@@ -677,26 +746,31 @@ option_list <- list(
 
 ## parse CLI
 
+args <- NULL
+#if (length(commandArgs(trailingOnly = TRUE)) == 0) {
+#  args <- c("--condition1=WT",
+#            "--condition2=DNMT2",
+#            "--score_column=MDI",
+#            "--split=extended",
+#            "--position_column=sprinzl",
+#            "--ref_fasta=/beegfs/prj/tRNA_Francesca_Tuorto/index/all_human_tRNAs_v2_linkerNovoa_final.fa",
+#            "--show_introns",
+#            "--title={condition1} vs. {condition2}; score: {score}",
+#            "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_modomics_sprinzl.tsv",
+#            "--sort_by=coverage",
+#            "--estimate_coverage",
+#            "--five_adapter=23",
+#             "--three_adapter=33",
+#            "--harmonize_scaling=-1",
+#            "--sprinzl=/beegfs/homes/mpiechotta/git/QutRNA/data/mt_sprinzl.txt",
+#            "--output_dir=~/tmp/plot_score",
+#            "--remove_prefix=Homo_sapiens_",
+#            "~/tmp/new_test_data2.tsv")
+#}
+
 opts <- parse_args(
   OptionParser(option_list = option_list),
-   # args = c("--condition1=WT",
-   #          "--condition2=DNMT2",
-   #          "--score_column=MDI_subsampled",
-   #          "--split=isodecoder",
-   #          "--position_column=sprinzl",
-   #          "--ref_fasta=/beegfs/prj/tRNA_Francesca_Tuorto/index/all_human_tRNAs_v2_linkerNovoa_final.fa",
-   #          "--show_introns",
-   #          "--title={condition1} vs. {condition2}; score: {score}",
-   #          "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_modomics_sprinzl.tsv",
-   #          "--sort_by=coverage",
-   #          "--estimate_coverage",
-   #          "--five_adapter=23",
-   #          "--three_adapter=33",
-   #          "--harmonize_scaling=-1",
-   #          "--sprinzl=/beegfs/homes/mpiechotta/git/QutRNA/data/euk_sprinzl.txt",
-   #          "--output_dir=~/tmp/plot_score",
-   #          "--remove_prefix=Homo_sapiens_",
-   # "~/tmp/new_test_data.tsv"),
+  args = args,
   positional_arguments = TRUE
 )
 
@@ -725,7 +799,7 @@ if (!is.null(opts$options$coverage_info)) {
   stopifnot(file.exists(opts$options$coverage_info))
 }
 if (!is.null(opts$options$sprinzl)) {
-  stopifnot(file.exists(opts$options$sprinz))
+  stopifnot(file.exists(opts$options$sprinzl))
 }
 if (!is.null(opts$options$modmap)) {
   stopifnot(file.exists(opts$options$modmap))

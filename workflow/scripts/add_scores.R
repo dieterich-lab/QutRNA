@@ -307,7 +307,7 @@ PARSE_COLS <- list("mismatch_score" = function(r) { return(rowData(r)$score) },
                    #
                    "mean_mismatch_score_downsampled" = function(r) { return(summarise_score(r, "score_downsampled", mean)) },
                    "mean_insertion_score_downsampled" = function(r) { return(summarise_score(r, "insertion_score_downsampled", mean)) },
-                   "mean_deletion_score_downsampled" = function(r) { return(summarise_score(r, "deletion_score_downsampled", mean)) },
+                   "mean_deletion_score_downsampled" = function(r) { return(summarise_score(r, "deletion_score_downsampled", mean)) })
                    # TODO check
                    #"mean_non_ref_ratio" = function(r) { return(summarise_ratio(r, non_ref_ratio, rowMeans)) },
                    #"mean_insertion_ratio" = function(r) { return(summarise_ratio(r, insertion_ratio, rowMeans)) } ,

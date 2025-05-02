@@ -138,8 +138,7 @@ def _filter_remove_multimappers(i):
 
   input_ = _filter_input_helper(i)
   bam = "results/bams/preprocessed/remove_multimappers/{filename}.bam"
-  output_ = {"bam": temp(bam),
-             "stats": "results/bams/preprocessed/remove_multimappers/{filename}_stats.tsv", }
+  output_ = {"bam": temp(bam), }
   FILTER2OUTPUT.append(bam)
   FILTERS_APPLIED.append("remove_multimappers")
 
@@ -156,11 +155,11 @@ def _filter_remove_multimappers(i):
     output: **output_,
     log: f"logs/preprocessed/{i}_multimappers/{{filename}}.log"
     params:
-      opts=opts_helper(),
+      opts=opts_helper(conf),
     shell: """
       ( samtools sort -n {input.bam:q} | \
-          python {workflow.basedir}/scripts/remove_multimappers.py {params.opts} --stats {output.stats:q} | \
-          samtools sort -o {output.bam:q} ) 2> {loq:q}
+          python {workflow.basedir}/scripts/remove_multimappers.py {params.opts} - | \
+          samtools sort -o {output.bam:q} ) 2> {log:q}
     """
 
 
@@ -170,34 +169,33 @@ def _filter_overlap(i):
     return
 
   input_ = _filter_input_helper(i)
-  bam = "results/bams/preprocessed/remove_multimappers/{filename}.bam"
+  input_["fasta"] = REF_FASTA
+  bam = "results/bams/preprocessed/overlap/{filename}.bam"
   output_ = {"bam": temp(bam),
-             "stats": "results/bams/preprocessed/remove_multimappers/{filename}_stats.tsv", }
-             "fasta": REF_FASTA, }
+             "stats": "results/bams/preprocessed/overlap/{filename}_stats.tsv",}
   FILTER2OUTPUT.append(bam)
   FILTERS_APPLIED.append("overlap")
 
-  def opts_helper(conf, main_config):
+  def opts_helper(conf, pep_config):
     opts = []
 
-    value = main_config.get(main_config["qutrna"]["linker5"], 0):
+    value = pep_config["qutrna"].get("linker5", 0)
     if value:
       opts.append(f"--five-adapter {value}")
 
-    value = main_config.get(main_config["qutrna"]["linker3"], 0):
+    value = pep_config["qutrna"].get("linker3", 0)
     if value:
       opts.append(f"--three-adapter {value}")
 
-    value = main_config.get(conf.get("five_adapter_overlap", 0)): # FIXME linker vs. adapter naming
+    value = conf.get("five_linker_overlap", 0)
     if value:
       opts.append(f"--five-adapter-overlap {value}")
 
-    value = main_config.get(conf.get("trna_adapter_overlap", 0)): # FIXME linker vs. adapter naming
+    value = conf.get("trna_overlap", 0)
     if value:
       opts.append(f"--trna-overlap {value}")
 
-
-    value = main_config.get(conf.get("threea_adapter_overlap", 0)): # FIXME linker vs. adapter naming
+    value = conf.get("three_linker_overlap", 0)
     if value:
       opts.append(f"--three-adapter-overlap {value}")
 
@@ -209,20 +207,20 @@ def _filter_overlap(i):
     output: **output_,
     log: f"logs/preprocessed/{i}_overlap/{{filename}}.log"
     params:
-      opts=opts_helper(),
+      opts=opts_helper(conf, pep.config),
     shell: """
-      python {workflow.basedir}/scripts/read_overlap.py {params.opts} --stats {output.stats:q} > {output.bam:q} ) 2> {loq:q}
+      python {workflow.basedir}/scripts/read_overlap.py {params.opts} --fasta {input.fasta} --stats {output.stats:q} {input.bam} > {output.bam:q} 2> {log:q}
     """
 
 
 # preprocess -> filter function
 _filters = {
-    "samtools": _filter_samtools,
-    "trim_cigar": _filter_trim_cigar,
-    "read_length": _filter_read_length,
-    "remove_multimappers": _remove_multimappers,
-    "overlap": _overlap,
-    "alignment_length": _filter_alignment_length,
+  "samtools": _filter_samtools,
+  "trim_cigar": _filter_trim_cigar,
+  "read_length": _filter_read_length,
+  "remove_multimappers": _filter_remove_multimappers,
+  "overlap": _filter_overlap,
+  "alignment_length": _filter_alignment_length,
 }
 
 
