@@ -135,7 +135,7 @@ properties:
           type: string
         trnas:
           type: string
-          enum: ["isoacceptor", "isodecoder", "all"]
+          enum: ["isoacceptor", "isodecoder", "extended", "all"]
         positions:
           type: array
           items:

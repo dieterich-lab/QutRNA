@@ -167,10 +167,18 @@ read_result <- function(file, tmpdir = tempdir(), showProgress = FALSE, ...) {
   assays[["bases"]] <- .unpack_cols(df, cols, sample_info$sample, .BASES)
   assay_cols <- c(cols)
 
-  for (prefix in c("reads", "insertions", "deletions")) { # FIXME add more keys
+  for (prefix in c("reads", "insertions", "deletions")) {
     cols <- paste0(prefix, sample_info$condition, sample_info$replicate)
     assays[[prefix]] <- df[, cols] |>
       lapply(as.integer) |>
+      as.data.frame()
+    colnames(assays[[prefix]]) <- sample_info$sample
+    assay_cols <- c(assay_cols, cols)
+  }
+  for (prefix in c("nonref_ratio", "insertion_ratio", "deletion_ratio")) { # FIXME add more keys
+    cols <- paste0(prefix, sample_info$condition, sample_info$replicate)
+    assays[[prefix]] <- df[, cols] |>
+      lapply(as.numeric) |>
       as.data.frame()
     colnames(assays[[prefix]]) <- sample_info$sample
     assay_cols <- c(assay_cols, cols)
@@ -344,10 +352,12 @@ parse_result <- function(r, stats) {
     select(all_of(c("trna", "seq_position", "strand", "ref")))
 
   # add intermediate columns
-  reads <- assays(r)$reads
-  colnames(reads) <- gsub("^bam", "reads", colnames(reads))
-  cols <- c(cols, colnames(reads))
-  df <- cbind(df, reads)
+  for (a in c("reads", "insertion_ratio", "deletion_ratio", "nonref_ratio")) {
+    tmp <- assays(r)[[a]]
+    colnames(tmp) <- gsub("^bam", a, colnames(tmp))
+    cols <- c(cols, colnames(tmp))
+    df <- cbind(df, tmp)
+  }
   for (col in pick_cols(stats$stat)) {
     if (!col %in% colnames(df)) {
       f <- PARSE_COLS[[col]]

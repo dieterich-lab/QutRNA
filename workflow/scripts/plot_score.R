@@ -1,7 +1,8 @@
 #!/usr/bin/env Rscript
 
-# Plot JACUSA2 score and existing modification info as a heatmap)
+options(error = function() traceback(3))
 
+# Plot JACUSA2 score and existing modification info as a heatmap)
 
 library(optparse)
 library(ggplot2)
@@ -381,34 +382,71 @@ plot_heatmap <- function(df, xlab = "position", harmonize_scaling = NULL) {
   p
 }
 
-plot_extended <- function(df, coverage_summary, plot_args) {
+plot_extended <- function(df, coverage_summary, plot_args, condition1, condition2) {
+  title <- df$trna_label |>
+    unique() |>
+    as.character()
+  
+  vlines <- data.frame(x = c(1, 10, 20, 30, 40, 50, 60, 70))
   p_score <- df |>
     mutate(trna_label = "Score") |>
     plot_heatmap(xlab = plot_args[["position_xlab"]],
                  harmonize_scaling = plot_args[["harmonize_scaling"]]) +
       theme(axis.text.x = element_blank(),
-            legend.position = "none",
+            axis.text.y = element_text(size = 10, colour = "black" ),
             axis.title.x = element_blank())
   
   p_read_cov <- df |> 
     select(position, starts_with("reads_")) |>
     tidyr::pivot_longer(cols = starts_with("reads_"), values_to = "reads") |>
-    mutate(condition = as.factor(stringr::str_match(name, "reads_(\\d+)_(\\d+)")[, 2]),
-           name = as.factor(name)) |>
+    mutate(replicate = gsub("^reads_\\d+_", "", name),
+           condition = gsub("^reads_|_\\d+$", "", name),
+           condition_i = condition,
+           condition = case_match(condition,
+                                  "1" ~ condition1,
+                                  "2" ~ condition2),
+           condition = factor(condition, levels = c(condition1, condition2))) |>
     ggplot(aes(x = position, y = reads, group = name, colour = condition, fill = condition)) +
     ylab("Read coverage") +
     geom_line() +
+    geom_vline(data = vlines, mapping = aes(xintercept = x), linewidth = 0.25, colour = "gray", linetype = 2) +
     scale_y_continuous(breaks = scales::breaks_pretty(3),
                        labels = scales::label_number(scale_cut = scales::cut_short_scale())) +
     theme_bw() +
     theme(panel.background = element_rect(fill = "white", color = "white"),
-          legend.position = "none",
+          panel.border = element_blank(),
+          axis.text.x = element_text(angle = 90, size = 8, vjust = 0.5, hjust = 1),
+          axis.title.x = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          plot.margin = margin(0, .5, 0, 0)) +
+    ggtitle(title)
+
+  ratios_long <- df |> 
+    select(position, starts_with("nonref_ratio_"), starts_with("insertion_ratio_"), starts_with("deletion_ratio_")) |>
+    tidyr::pivot_longer(cols = c(starts_with("nonref_ratio_"), starts_with("insertion_ratio_"), starts_with("deletion_ratio_")), values_to = "ratio")
+  ratio_details <- as.data.frame(stringr::str_match(ratios_long$name, "(nonref|insertion|deletion)_ratio_(\\d+)_(\\d+)"))[, -1]
+  colnames(ratio_details) <- c("error", "condition", "replicate")
+  ratios <- cbind(ratios_long, ratio_details)
+  
+  p_ratios <- ratios |>
+    summarise(.by = c(position, error, condition),
+              mean_ratio = mean(ratio)) |>
+    summarise(.by = c(position, error),
+              diff_mean_ratio = mean_ratio[condition == 1] - mean_ratio[condition == 2]) |>
+    ggplot(aes(x = position, y = diff_mean_ratio, group = error, colour = error, fill = error)) +
+    ylab(expression(Delta ~ Error)) +
+    geom_line() +
+    geom_abline(linetype = "dashed", colour = "gray", slope = 0, intercept = 0) +
+    geom_vline(data = vlines, mapping = aes(xintercept = x), linewidth = 0.25, colour = "gray", linetype = 2) +
+    scale_y_continuous(labels = scales::label_percent()) +
+    theme_bw() +
+    theme(panel.background = element_rect(fill = "white", color = "white"),
           panel.border = element_blank(),
           axis.text.x = element_blank(),
           axis.title.x = element_blank(),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
-          # TODO text = element_text(family = "mono"),
           plot.margin = margin(0, .5, 0, 0))
 
   p_ref <- df |> 
@@ -421,25 +459,24 @@ plot_extended <- function(df, coverage_summary, plot_args) {
     theme(panel.background = element_rect(fill = "white", color = "white"),
           legend.position = "none",
           panel.border = element_blank(),
-          # axis.text.x = element_blank(),
-          # axis.title.x = element_blank(),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
-          # TODO text = element_text(family = "mono"),
+          axis.text.y = element_text(size = 10, colour = "black" ),
           axis.title.y = element_blank(),
           axis.text.x = element_text(angle = 90, size = 8, vjust = 0.5, hjust = 1),
           plot.margin = margin(0, .5, 0, 0))
 
   # TODO
-  # add non_ref_ratio
-  # add insertion_ratio
-  # add deletion_ratio
   # add indels-sequence logo
 
-  # TODO add guide
-
+  p <- p_read_cov / 
+    p_ratios /
+    p_score / 
+    p_ref + 
+    plot_layout(nrow = 4, heights = unit(c(3, 3, -1, -1), c("cm", "cm", "null", "null"))) +
+    plot_layout(guides = "collect")
   
-  return(p_read_cov / p_score / p_ref  + plot_layout(nrow = 3, heights = unit(c(3, -1, -1), c("cm", "null", "null"))))
+  return(p)
 }
 
 plot_combined <- function(df, coverage_summary, plot_args) {
@@ -555,7 +592,7 @@ split_all <- function(df, coverage_summary, output_dir, plot_args, process_args)
   save_plot(df, p, output)
 }
 
-split_extended <- function(df, coverage_summary, output_dir, plot_args, process_args) {
+split_extended <- function(df, coverage_summary, output_dir, plot_args, process_args, condition1, condition2) {
   l_df <- split(df, df$trna)
   trnas <- names(l_df)
 
@@ -576,8 +613,7 @@ split_extended <- function(df, coverage_summary, output_dir, plot_args, process_
       tmp_df <- res$df
       tmp_coverage_summary <- res$coverage_summary
     }
-    p <- plot_extended(tmp_df, tmp_coverage_summary, plot_args)
-    browser()
+    p <- plot_extended(tmp_df, tmp_coverage_summary, plot_args, condition1, condition2)
   }
 }
 
@@ -746,31 +782,31 @@ option_list <- list(
 
 ## parse CLI
 
-args <- NULL
-#if (length(commandArgs(trailingOnly = TRUE)) == 0) {
-#  args <- c("--condition1=WT",
-#            "--condition2=DNMT2",
-#            "--score_column=MDI",
-#            "--split=extended",
-#            "--position_column=sprinzl",
-#            "--ref_fasta=/beegfs/prj/tRNA_Francesca_Tuorto/index/all_human_tRNAs_v2_linkerNovoa_final.fa",
-#            "--show_introns",
-#            "--title={condition1} vs. {condition2}; score: {score}",
-#            "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_modomics_sprinzl.tsv",
-#            "--sort_by=coverage",
-#            "--estimate_coverage",
-#            "--five_adapter=23",
-#             "--three_adapter=33",
-#            "--harmonize_scaling=-1",
-#            "--sprinzl=/beegfs/homes/mpiechotta/git/QutRNA/data/mt_sprinzl.txt",
-#            "--output_dir=~/tmp/plot_score",
-#            "--remove_prefix=Homo_sapiens_",
-#            "~/tmp/new_test_data2.tsv")
-#}
+ #args <- NULL
+ #if (length(commandArgs(trailingOnly = TRUE)) == 0) {
+ # args <- c("--condition1=WT",
+ #           "--condition2=DNMT2",
+ #           "--score_column=MDI",
+ #           "--split=extended",
+ #           "--position_column=sprinzl",
+ #           "--ref_fasta=/beegfs/prj/tRNA_Francesca_Tuorto/index/all_human_tRNAs_v2_linkerNovoa_final.fa",
+ #           "--show_introns",
+ #           "--title={condition1} vs. {condition2}; score: {score}",
+ #           "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_modomics_sprinzl.tsv",
+ #           "--sort_by=coverage",
+ #           "--estimate_coverage",
+ #           "--five_adapter=23",
+ #            "--three_adapter=33",
+ #           "--harmonize_scaling=-1",
+ #           "--sprinzl=/beegfs/homes/mpiechotta/git/QutRNA/data/mt_sprinzl.txt",
+ #           "--output_dir=~/tmp/plot_score",
+ #           "--remove_prefix=Homo_sapiens_",
+ #           "/beegfs/prj/tRNA_Francesca_Tuorto/data/HCT116_tRNA_RNA004/2_biolrepl/test_analayis-3/results/jacusa2/cond1~WT/cond2~DNMT2/scores_sprinzl.tsv")
+ #}
 
 opts <- parse_args(
   OptionParser(option_list = option_list),
-  args = args,
+  # CLI args = args,
   positional_arguments = TRUE
 )
 
@@ -928,7 +964,10 @@ if (opts$options$split == "isoacceptor") {
 } else if (opts$options$split == "all") {
   split_all(df, coverage_summary, opts$options$output_dir, get_plot_args(df, opts), get_process_args(opts))
 } else if (opts$options$split == "extended") {
-  split_extended(df, coverage_summary, opts$options$output_dir, get_plot_args(df, opts), get_process_args(opts))
+  split_extended(df, coverage_summary,
+                 opts$options$output_dir,
+                 get_plot_args(df, opts),
+                 get_process_args(opts), opts$options$condition1, opts$options$condition2)
 } else {
   stop("Unknown split: ", opts$options$split)
 }
