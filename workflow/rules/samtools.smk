@@ -46,6 +46,33 @@ rule samtools_read_count:
   """
 
 
+rule samtools_multimappers:
+  input: "{prefix}.bam",
+  output: "{prefix}_multimappers.tsv",
+  conda: "qutrna",
+  resources:
+    mem_mb=2000
+  log: "logs/samtools/multimappers/{prefix}.log",
+  shell: """
+    ( samtools view {input:q} | \
+      cut -f1,3 | \
+      sort -k1,1 | \
+      python  {workflow.basedir}/count_multimapper.py ) > {output:q} 2> {log:q}
+  """
+
+
+rule samtools_get_as:
+  input: "{prefix}.bam",
+  output: "{prefix}_as.tsv",
+  conda: "qutrna",
+  resources:
+    mem_mb=2000
+  log: "logs/samtools/get_as/{prefix}.log",
+  shell: """
+    ( python {workflow.basedir}/get_as.py ) {input:q} | sort | uniq -c ) > {output:q} 2> {log:q}thon 
+  """
+
+
 rule samtools_get_score:
   input: "results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam"
   output: "results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_score.txt"

@@ -21,7 +21,8 @@ stopifnot(length(opts$args) == 1)
 df <- read.table(opts$args,
                  sep = "\t",
                  header = TRUE) |>
-  mutate(base_calling = factor(base_calling, levels = c("pass", "fail", "merged", "unknown"), ordered = TRUE))
+  mutate(base_calling = factor(base_calling, levels = c("pass", "fail", "merged", "unknown"), ordered = TRUE),
+         read_type = factor(read_type, levels = rev(unique(read_type)), ordered = TRUE))
 
 p <- df |>
   ggplot(aes(x = subsample, y = read_count, fill = read_type)) +
@@ -32,6 +33,6 @@ p <- df |>
   coord_flip() +
   theme_bw() +
   theme(legend.position = "bottom") +
-  facet_grid(base_calling ~ ., labeller = label_both, scales = "free_y")
+  facet_grid(base_calling ~ ., labeller = function(...) { return(label_both(sep = ":\n", ...)) }, scales = "free_y")
 
 ggsave(opts$options$output, p, width = 8, height = 6)

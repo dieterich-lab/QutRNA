@@ -31,10 +31,6 @@ get_ref_fasta <- function(fname) {
   return(ref_fasta)
 }
 
-harmonize_scaling <- function(df) {
-  return(max(df$score))
-}
-
 trna_label <- function(df, remove_prefix = "") {
   new_label <- df$trna
   if (remove_prefix != "") {
@@ -126,13 +122,13 @@ mark_positions <- function(df, mark_positions) {
 }
 
 # extract amino_acid anti_codon
-add_trna_details <- function(df) {
+add_trna_details <- function(df, col = "trna") {
   df$amino_acid <- ""
   df$anti_codon <- ""
-  i <- grepl("tRNA", df$trna)
+  i <- grepl("tRNA", df[, col])
   if (any(i)) {
-    df[i, "amino_acid"] <- stringr::str_extract(df[i, "trna"], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 1)
-    df[i, "anti_codon"] <- stringr::str_extract(df[i, "trna"], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 2)
+    df[i, "amino_acid"] <- stringr::str_extract(df[i, col], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 1)
+    df[i, "anti_codon"] <- stringr::str_extract(df[i, col], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 2)
   }
 
   return(df)
@@ -205,7 +201,7 @@ order_by_coverage <- function(df, coverage_summary) {
     select(all_of(c("trna_label", "total_reads"))) |>
     distinct()
   trna_labels <- total_reads_info$trna_label[order(total_reads_info$total_reads)]
-
+  
   return(order_by_helper(df, coverage_summary, trna_labels))
 }
 order_by_trna <- function(df, coverage_summary) {
@@ -391,24 +387,52 @@ plot_extended <- function(df, coverage_summary, plot_args, condition1, condition
   p_score <- df |>
     mutate(trna_label = "Score") |>
     plot_heatmap(xlab = plot_args[["position_xlab"]],
-                 harmonize_scaling = plot_args[["harmonize_scaling"]]) +
+                 harmonize_scaling = plot_args[["harmonize_scaling"]]) + # TODO test hatmonize scaling
       theme(axis.text.x = element_blank(),
             axis.text.y = element_text(size = 10, colour = "black" ),
             axis.title.x = element_blank())
-  
-  p_read_cov <- df |> 
-    select(position, starts_with("reads_")) |>
-    tidyr::pivot_longer(cols = starts_with("reads_"), values_to = "reads") |>
-    mutate(replicate = gsub("^reads_\\d+_", "", name),
-           condition = gsub("^reads_|_\\d+$", "", name),
+
+  # p_read_cov <- df |> 
+  #   select(position, starts_with("reads_")) |>
+  #   tidyr::pivot_longer(cols = starts_with("reads_"), values_to = "reads") |>
+  #   mutate(replicate = gsub("^reads_\\d+_", "", name),
+  #          condition = gsub("^reads_|_\\d+$", "", name),
+  #          condition_i = condition,
+  #          condition = case_match(condition,
+  #                                 "1" ~ condition1,
+  #                                 "2" ~ condition2),
+  #          condition = factor(condition, levels = c(condition1, condition2))) |>
+  #   ggplot(aes(x = position, y = reads, group = name, colour = condition, fill = condition)) +
+  #   ylab("Read coverage") +
+  #   geom_line() +
+  #   geom_vline(data = vlines, mapping = aes(xintercept = x), linewidth = 0.25, colour = "gray", linetype = 2) +
+  #   scale_y_continuous(breaks = scales::breaks_pretty(3),
+  #                      labels = scales::label_number(scale_cut = scales::cut_short_scale())) +
+  #   theme_bw() +
+  #   theme(panel.background = element_rect(fill = "white", color = "white"),
+  #         panel.border = element_blank(),
+  #         axis.text.x = element_text(angle = 90, size = 8, vjust = 0.5, hjust = 1),
+  #         axis.title.x = element_blank(),
+  #         panel.grid.major = element_blank(),
+  #         panel.grid.minor = element_blank(),
+  #         plot.margin = margin(0, .5, 0, 0)) +
+  #   ggtitle(title)
+
+  p_cov <- df |>
+    select(position, starts_with("ref_base_calls_"), starts_with("nonref_base_calls_"), starts_with("insertions_"), starts_with("deletions_")) |>
+    tidyr::pivot_longer(cols = c(starts_with("ref_base_calls_"), starts_with("nonref_base_calls_"), starts_with("insertions_"), starts_with("deletions_")), values_to = "count") |>
+    mutate(replicate = gsub("^(ref_base_calls|nonref_base_calls|insertions|deletions)_\\d+_", "", name),
+           condition = gsub("^(ref_base_calls|nonref_base_calls|insertions|deletions)_|_\\d+$", "", name),
+           type = gsub("(_\\d+_\\d+)$", "", name),
            condition_i = condition,
            condition = case_match(condition,
                                   "1" ~ condition1,
                                   "2" ~ condition2),
-           condition = factor(condition, levels = c(condition1, condition2))) |>
-    ggplot(aes(x = position, y = reads, group = name, colour = condition, fill = condition)) +
-    ylab("Read coverage") +
-    geom_line() +
+           condition = factor(condition, levels = c(condition1, condition2)),
+           sample = paste0(condition, "_", replicate)) |>
+    ggplot(aes(x = position, y = count, group = sample, colour = type, fill = type)) +
+    ylab("Base coverage") +
+    geom_col() +
     geom_vline(data = vlines, mapping = aes(xintercept = x), linewidth = 0.25, colour = "gray", linetype = 2) +
     scale_y_continuous(breaks = scales::breaks_pretty(3),
                        labels = scales::label_number(scale_cut = scales::cut_short_scale())) +
@@ -420,7 +444,8 @@ plot_extended <- function(df, coverage_summary, plot_args, condition1, condition
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           plot.margin = margin(0, .5, 0, 0)) +
-    ggtitle(title)
+    ggtitle(title) +
+    facet_wrap(sample ~ ., ncol = 1, strip.position = "right")
 
   ratios_long <- df |> 
     select(position, starts_with("nonref_ratio_"), starts_with("insertion_ratio_"), starts_with("deletion_ratio_")) |>
@@ -469,13 +494,14 @@ plot_extended <- function(df, coverage_summary, plot_args, condition1, condition
   # TODO
   # add indels-sequence logo
 
-  p <- p_read_cov / 
+  p <- 
+    p_cov / 
     p_ratios /
     p_score / 
     p_ref + 
-    plot_layout(nrow = 4, heights = unit(c(3, 3, -1, -1), c("cm", "cm", "null", "null"))) +
+    plot_layout(nrow = 4, heights = unit(c(6, 3, -1, -1), c("cm", "cm", "null", "null"))) +
     plot_layout(guides = "collect")
-  
+
   return(p)
 }
 
@@ -516,7 +542,29 @@ save_plot <- function(df, p, output) {
   # use opts
   # infer width and height from df
   # knitr::plot_crop()
-  ggsave(output, p, width = 2 * 8.56, height = 5.49)
+  
+  position_width <- df$position |>
+    unique() |>
+    length()
+  trna_label_width <- df$trna_label |>
+    unique() |>
+    as.character() |>
+    nchar() |>
+    max()
+  trnas_heigth <- df$trna_label |>
+    unique() |>
+    length()
+  
+  width <- position_width + 2 * trna_label_width
+  heigth <- trnas_heigth
+  ratio <- heigth / width
+  scale <- 20
+  width <- ratio * scale
+  heigth <- scale
+  heigth <- 40
+  width <- 22
+  
+  ggsave(output, p, width = width , height = heigth)
 }
 
 ## split
@@ -614,6 +662,9 @@ split_extended <- function(df, coverage_summary, output_dir, plot_args, process_
       tmp_coverage_summary <- res$coverage_summary
     }
     p <- plot_extended(tmp_df, tmp_coverage_summary, plot_args, condition1, condition2)
+    trna_label <- unique(tmp_df$trna_label)
+    output <- file.path(output_dir, paste0(trna_label, ".pdf"))
+    save_plot(df, p, output)
   }
 }
 
@@ -665,9 +716,13 @@ get_plot_args <- function(df, opts) {
   }
   
   harmonize_scaling <- opts$options$harmonize_scaling
-  if (!is.null(harmonize_scaling) && harmonize_scaling == -1) {
-    harmonize_scaling <- max(df$score)
+  if (!is.null(harmonize_scaling)) {
+    if (harmonize_scaling == "-1") {
+      harmonize_scaling <- max(df$score, na.rm = TRUE)
+    }
+    harmonize_scaling <- as.numeric(harmonize_scaling)
   }
+
   return(list(
     "title" = title,
     "position_xlab" = position_xlab,
@@ -782,31 +837,27 @@ option_list <- list(
 
 ## parse CLI
 
- #args <- NULL
- #if (length(commandArgs(trailingOnly = TRUE)) == 0) {
- # args <- c("--condition1=WT",
- #           "--condition2=DNMT2",
- #           "--score_column=MDI",
- #           "--split=extended",
- #           "--position_column=sprinzl",
- #           "--ref_fasta=/beegfs/prj/tRNA_Francesca_Tuorto/index/all_human_tRNAs_v2_linkerNovoa_final.fa",
- #           "--show_introns",
- #           "--title={condition1} vs. {condition2}; score: {score}",
- #           "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_modomics_sprinzl.tsv",
- #           "--sort_by=coverage",
- #           "--estimate_coverage",
- #           "--five_adapter=23",
- #            "--three_adapter=33",
- #           "--harmonize_scaling=-1",
- #           "--sprinzl=/beegfs/homes/mpiechotta/git/QutRNA/data/mt_sprinzl.txt",
- #           "--output_dir=~/tmp/plot_score",
- #           "--remove_prefix=Homo_sapiens_",
- #           "/beegfs/prj/tRNA_Francesca_Tuorto/data/HCT116_tRNA_RNA004/2_biolrepl/test_analayis-3/results/jacusa2/cond1~WT/cond2~DNMT2/scores_sprinzl.tsv")
- #}
-
+args <- c("--condition1=WT",
+         "--condition2=DNMT2",
+         "--score_column=MDI_subsampled",
+         "--split=isodecoder",
+         "--position_column=sprinzl",
+         "--ref_fasta=/beegfs/prj/tRNA_Francesca_Tuorto/index/all_human_tRNAs_v2_linkerNovoa_final.fa",
+         "--show_introns",
+         "--title={condition1} vs. {condition2}; score: {score}",
+         "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_modomics_sprinzl.tsv",
+         "--sort_by=coverage",
+         "--estimate_coverage",
+         "--five_adapter=23",
+          "--three_adapter=33",
+         "--harmonize_scaling=-1",
+         "--sprinzl=/beegfs/homes/mpiechotta/git/QutRNA/data/euk_sprinzl.txt",
+         "--output_dir=~/tmp/plot_score",
+         "--remove_prefix=Homo_sapiens_",
+         "/beegfs/prj/tRNA_Francesca_Tuorto/data/HCT116_tRNA_RNA004/2_biolrepl/output-strict-basq1//results/jacusa2/cond1~WT/cond2~DNMT2/scores_sprinzl.tsv")
 opts <- parse_args(
   OptionParser(option_list = option_list),
-  # CLI args = args,
+  # args = args,
   positional_arguments = TRUE
 )
 
@@ -955,6 +1006,12 @@ if (!is.null(opts$options$mods)) {
 
 # add missing values
 df <- add_missing_values(df, opts)
+
+# QUICK FIX
+# browser()
+df <- add_trna_details(df, col = "trna_label")
+coverage_summary <- add_trna_details(coverage_summary, col = "trna_label")
+# browser()
 
 # split data, plot, and save
 if (opts$options$split == "isoacceptor") {

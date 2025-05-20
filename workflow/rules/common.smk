@@ -187,23 +187,40 @@ rule remove_trnas:
   """
 
 
-def _collect_read_counts_input(wildcards):
-  t2fnames = {}
-  for sample in SAMPLES:
-    df = TBL.loc[[sample]]
-    # collect subsamples
-    for row in df.itertuples(index=False):
-      if not hasattr(row, "bam"):
-        raise Exception("Not implemented yet") # TODO implement, when BAM not available
-      t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_read_count.txt") # TODO what if no base calling
-      for read_type in FILTERS_APPLIED:
-        t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_read_count.txt") # TODO what if no base calling
+# TODO remove
+#def _collect_read_counts_input(wildcards):
+#  t2fnames = {}
+#  for sample in SAMPLES:
+#    df = TBL.loc[[sample]]
+#    # collect subsamples
+#    for row in df.itertuples(index=False):
+#      if not hasattr(row, "bam"):
+#        raise Exception("Not implemented yet") # TODO implement, when BAM not available
+#      t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_read_count.txt") # TODO what if no base calling
+#      for read_type in FILTERS_APPLIED:
+#        t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_read_count.txt") # TODO what if no base calling
+#
+#  return t2fnames
 
-  return t2fnames
 
+def _collect_input(suffix):
+  def helper(wildcards):
+    t2fnames = {}
+    for sample in SAMPLES:
+      df = TBL.loc[[sample]]
+      # collect subsamples
+      for row in df.itertuples(index=False):
+        if not hasattr(row, "bam"):
+          raise Exception("Not implemented yet") # TODO implement, when BAM not available
+        t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.{suffix}") # TODO what if no base calling
+        for read_type in FILTERS_APPLIED:
+          t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.{suffix}") # TODO what if no base calling
+    return t2fnames
+
+  return helper
 
 rule collect_read_counts:
-  input: unpack(_collect_read_counts_input)
+  input: unpack(_collect_input("sorted_read_count.txt"))
   output: "results/read_counts.tsv"
   run:
     dfs = []
@@ -217,6 +234,29 @@ rule collect_read_counts:
         df["sample"] = sample
         df["subsample"] = fname2subsample(fname)
         df["base_calling"] = re.search("/([^/]+).sorted_read_count.txt$", fname).group(1)
+        df["condition"] = TBL.loc[[sample]]["condition"].unique()[0]
+        df["fname"] = fname
+
+        dfs.append(df)
+    df = pd.concat(dfs, ignore_index=True)
+    df.to_csv(output[0], sep="\t", index=False)
+
+
+rule collect_as:
+  input: unpack(_collect_input("sorted_alignment_score.tsv"))
+  output: "results/alignment_scores.tsv"
+  run:
+    dfs = []
+    for read_type, fnames in input.items():
+      for fname in fnames:
+        df = pd.read_csv(fname, sep="\t", header=None, names=["as", "count"])
+
+        df["read_type"] = read_type
+        df[["sample", "subsample", "base_calling"]] = ""
+        sample = fname2sample(fname)
+        df["sample"] = sample
+        df["subsample"] = fname2subsample(fname)
+        df["base_calling"] = re.search("/([^/]+).sorted_alignment_scores.tsv$", fname).group(1)
         df["condition"] = TBL.loc[[sample]]["condition"].unique()[0]
         df["fname"] = fname
 

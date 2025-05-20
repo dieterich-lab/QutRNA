@@ -106,3 +106,17 @@ rule plot_read_length:
          --output {output:q} {input:q} \
          2> {log:q}
   """
+
+
+rule plot_multimapper:
+  input: "results/stats/multimapper.tsv",
+  output: "results/plots/multimapper.pdf",
+  conda: "qutrna",
+  resources:
+    mem_mb=10000
+  log: "logs/plot/multimapper.log",
+  shell: """
+    Rscript {workflow.basedir}/scripts/plot_multimapper.R \
+         --output {output:q} {input:q} \
+         2> {log:q}
+  """

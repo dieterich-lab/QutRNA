@@ -24,6 +24,7 @@ df <- read.table(opts$args,
 
 df_munged <- df |>
   select(-fname) |>
+  mutate(read_type = factor(read_type, levels = unique(read_type), ordered = TRUE)) |>
   mutate(proportion = count / sum(count),
          .by = c(read_type, subsample, base_calling, condition),
          base_calling = factor(base_calling, levels = c("pass", "fail", "merged", "unknown"), ordered = TRUE))
@@ -34,10 +35,11 @@ p <- df_munged |>
   scale_x_continuous(limits = c(20, 250),
                      breaks = c(20, 40, 60, 100, 150, 200, 250)) +
   labs(x = "read length [nt]", y = "proportion") +
-  guides(colour = guide_legend("condition")) +
+  guides(colour = guide_legend("subsample")) +
   theme_bw() +
   theme(legend.position = "bottom",
-        text=element_text(size = 18)) +
-  facet_grid(base_calling ~ read_type, labeller = label_both) 
+        text = element_text(size = 18)) +
+  facet_grid(base_calling ~ read_type, labeller = function(...) { return(label_both(sep = ":\n", ...)) }) 
 
-ggsave(opts$options$output, p, width = 12, height = 8)
+n <- df_munged$read_type |> unique() |> length()
+ggsave(opts$options$output, p, width = max(12, n * 1.5), height = 8)

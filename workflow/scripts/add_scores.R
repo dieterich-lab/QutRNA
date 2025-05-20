@@ -232,9 +232,9 @@ option_list <- list(
 
 opts <- optparse::parse_args(
   optparse::OptionParser(option_list = option_list),
-  #args = c("-s", "MDI::mismatch_score+deletion_score+insertion_score,MDI_subsampled::norm_mismatch_score_subsampled+norm_deletion_score_subsampled+norm_insertion_score_subsampled",
-  #         "-o", "~/tmp/test.tsv",
-  #         "/beegfs/prj/tRNA_Francesca_Tuorto/data/20250115_FT_HCT116_tRNA_RNA004/qutrna/mt_trnas/test_jacusa2_local_hac500/results/jacusa2/cond1~WT/cond2~DNMT2/JACUSA2.out"),
+  # args = c("-s", "MDI::mismatch_score+deletion_score+insertion_score,MDI_subsampled::norm_mismatch_score_subsampled+norm_deletion_score_subsampled+norm_insertion_score_subsampled",
+  #          "-o", "~/tmp/test.tsv",
+  #          "/beegfs/prj/tRNA_Francesca_Tuorto/data/HCT116_tRNA_RNA004/2_biolrepl/output-strict-basq1/results/jacusa2/cond1~WT/cond2~DNMT2/JACUSA2.out"),
   positional_arguments = TRUE
 )
 
@@ -352,12 +352,38 @@ parse_result <- function(r, stats) {
     select(all_of(c("trna", "seq_position", "strand", "ref")))
 
   # add intermediate columns
-  for (a in c("reads", "insertion_ratio", "deletion_ratio", "nonref_ratio")) {
+  for (a in c("reads", "insertions", "deletions", "insertion_ratio", "deletion_ratio", "nonref_ratio")) {
     tmp <- assays(r)[[a]]
     colnames(tmp) <- gsub("^bam", a, colnames(tmp))
     cols <- c(cols, colnames(tmp))
     df <- cbind(df, tmp)
   }
+  
+  # add ref and non_ref base_calls
+  total_base_calls <- assays(r)$bases |>
+    lapply(rowSums) |>
+    tibble::as_tibble()
+  ref_base_calls <- assays(r)$bases |>
+    lapply(function(b) {
+      n <- rowData(r)$ref |> length()
+      i <- as.matrix(cbind(seq_len(n), match(rowData(r)$ref, .BASES)))
+      return(as.matrix(b)[i])
+    }) |> tibble::as_tibble()
+  nonref_base_calls <- tibble::as_tibble(total_base_calls - ref_base_calls)
+  tmp <- total_base_calls
+  colnames(tmp) <- gsub("^bam", "base_calls", colnames(tmp))
+  cols <- c(cols, colnames(tmp))
+  df <- cbind(df, tmp)
+  tmp <- ref_base_calls
+  colnames(tmp) <- gsub("^bam", "ref_base_calls", colnames(tmp))
+  cols <- c(cols, colnames(tmp))
+  df <- cbind(df, tmp)
+  #
+  tmp <- nonref_base_calls
+  colnames(tmp) <- gsub("^bam", "nonref_base_calls", colnames(tmp))
+  cols <- c(cols, colnames(tmp))
+  df <- cbind(df, tmp)
+  
   for (col in pick_cols(stats$stat)) {
     if (!col %in% colnames(df)) {
       f <- PARSE_COLS[[col]]
