@@ -53,6 +53,9 @@ properties:
         type: integer
         default: 2
     default: {}
+  plot_preprocessed:
+    type: boolean
+    default: false
   preprocess:
     type: object
     properties:

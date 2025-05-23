@@ -49,7 +49,7 @@ def _plot_heatmap_opts(wildcards, input):
 
 
 def _plot_heatmap_input(wildcards):
-  d = {"scores": "results/jacusa2/cond1~{COND1}/cond2~{COND2}/" + SCORES,
+  d = {"scores": "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}/" + SCORES,
        "fasta": REF_FASTA,}
   # FIXME
   if "coverages" in pep.config["qutrna"]:
@@ -58,22 +58,26 @@ def _plot_heatmap_input(wildcards):
   if "sprinzl" in pep.config["qutrna"]:
     d["sprinzl"] = SPRINZL
 
+  d["max_scores"] = "results/jacusa2/max_scores.tsv"
+
   return d
 
 
 rule plot_heatmap:
   input: unpack(_plot_heatmap_input)
-  output: directory("results/plots/cond1~{COND1}/cond2~{COND2}/{plot_id}"),
+  output: directory("results/plots/cond1~{COND1}/cond2~{COND2}/{plot_id}/bams~{bam_type}"),
   conda: "qutrna",
   resources:
     mem_mb=10000
-  log: "logs/plot/heatmap/cond1~{COND1}/cond2~{COND2}/{plot_id}.log",
+  log: "logs/plot/heatmap/cond1~{COND1}/cond2~{COND2}/{plot_id}/bams~{bam_type}.log",
   params: opts=_plot_heatmap_opts,
   shell: """
     ( mkdir -p {output} && \
       Rscript {workflow.basedir}/scripts/plot_score.R \
           --condition1 {wildcards.COND1:q} \
           --condition2 {wildcards.COND2:q} \
+          --bam_type {wildcards.bam_type} \
+          --max_scores {input.max_scores} \
           --ref_fasta {input.fasta:q} \
           --output_dir {output:q} {input.scores:q} \
           {params.opts} ) 2> {log:q}

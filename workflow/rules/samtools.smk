@@ -69,10 +69,11 @@ rule samtools_get_as:
     mem_mb=2000
   log: "logs/samtools/get_as/{prefix}.log",
   shell: """
-    ( python {workflow.basedir}/get_as.py ) {input:q} | sort | uniq -c ) > {output:q} 2> {log:q}thon 
+    ( python {workflow.basedir}/get_as.py ) {input:q} | sort | uniq -c ) > {output:q} 2> {log:q}
   """
 
 
+# TODO
 rule samtools_get_score:
   input: "results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam"
   output: "results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_score.txt"
@@ -85,6 +86,7 @@ rule samtools_get_score:
   """
 
 
+# FIXME
 rule samtools_filter_by_cutoff:
   input: bam="results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~fwd/{BC}.sorted.bam",
          cutoff="results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_cutoff.txt",
@@ -105,12 +107,11 @@ def _samtools_merge_input(wildcards):
     if READS == "fastq":
         fname = f"results/bams/final/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
     elif READS == "bam":
-        i = len(FILTERS_APPLIED)
-        if i == 0:
-          fname = f"data/bams/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
-        else:
-          filter_ = FILTERS_APPLIED[i - 1]
-          fname = f"results/bams/preprocessed/{filter_}/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
+      if wildcards.bam_type == "final":
+        filter_ = FILTERS_APPLIED[-1]
+        fname = f"results/bams/preprocessed/{filter_}/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
+      else:
+        fname = f"results/bams/preprocessed/{{bam_type}}/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
     else:
       raise Exception()
     fnames.append(fname)
@@ -120,16 +121,17 @@ def _samtools_merge_input(wildcards):
 
 rule samtools_merge:
   input: _samtools_merge_input,
-  output: "results/bams/final/{SAMPLE}.sorted.bam",
+  output: "results/bams/{bam_type}/{SAMPLE}.sorted.bam",
   conda: "qutrna",
   resources:
     mem_mb=10000
-  log: "logs/samtools/merge/{SAMPLE}.log",
+  log: "logs/samtools/merge/{SAMPLE}/{bam_type}.log",
   shell: """
     samtools merge {output:q} {input:q} 2> {log:q}
   """
 
 
+# TODO
 if config["parasail"]["lines"] > 0:
   def _samtools_merge_reads_input(wildcards):
     split_reads = checkpoints.parasail_split_reads.get(**wildcards).output[0]

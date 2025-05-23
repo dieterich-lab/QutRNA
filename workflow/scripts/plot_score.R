@@ -27,7 +27,7 @@ guide_train.guide_axis_trans <- function(x, ...) {
 
 get_ref_fasta <- function(fname) {
   ref_fasta <- Biostrings::readBStringSet(fname)
-
+  
   return(ref_fasta)
 }
 
@@ -36,7 +36,7 @@ trna_label <- function(df, remove_prefix = "") {
   if (remove_prefix != "") {
     new_label <- gsub(remove_prefix, "", new_label)
   }
-
+  
   return(new_label)
 }
 
@@ -52,11 +52,11 @@ remove_3adapter <- function(df, ref_fasta, three_adapter) {
     rename(seq = "x") |>
     mutate(seq_length = nchar(seq)) |>
     select(all_of(c("trna", "seq_length")))
-
+  
   df <- left_join(df, df_ref_fasta, by = join_by(trna)) |>
     filter(seq_position <= (seq_length - three_adapter))
   stopifnot(!any(is.na(df$seq_length)))
-
+  
   return(df)
 }
 
@@ -88,9 +88,9 @@ process_sprinzl_coords <- function(df, sprinzl_fname, hide_varm, show_introns, i
                           sprinzl_coords[(intron_start_i + 1):length(sprinzl_coords)])
     }
   }
-
+  
   df$position <- factor(df$sprinzl, levels = sprinzl_coords, ordered = TRUE)
-
+  
   return(df)
 }
 
@@ -99,7 +99,7 @@ process_seq_coords <- function(df) {
                         levels = stringr::str_sort(
                           unique(df$position),
                           numeric = TRUE), ordered = TRUE)
-
+  
   return(df)
 }
 
@@ -109,7 +109,7 @@ flag_positions <- function(df, flas_positions) {
     df[i, "score"] <- NA
     df[i, "flag_position"] <- TRUE
   }
-
+  
   return(df)
 }
 mark_positions <- function(df, mark_positions) {
@@ -117,7 +117,7 @@ mark_positions <- function(df, mark_positions) {
   if (any(i)) {
     df[i, "mark_position"] <- TRUE
   }
-
+  
   return(df)
 }
 
@@ -125,12 +125,12 @@ mark_positions <- function(df, mark_positions) {
 add_trna_details <- function(df, col = "trna") {
   df$amino_acid <- ""
   df$anti_codon <- ""
-  i <- grepl("tRNA", df[, col])
+  i <- grepl("tRNA", df[[col]])
   if (any(i)) {
     df[i, "amino_acid"] <- stringr::str_extract(df[i, col], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 1)
     df[i, "anti_codon"] <- stringr::str_extract(df[i, col], ".*tRNA-([A-Za-z]+)-([A-Za-z]{3}).*", group = 2)
   }
-
+  
   return(df)
 }
 
@@ -151,7 +151,7 @@ estimate_coverage_info <- function(df, condition1, condition2) {
              "1" ~ condition1,
              "2" ~ condition2)) |>
     as.data.frame()
-
+  
   # reorder condition
   df_condition <- coverage_summary |>
     select(all_of(c("condition_i", "condition"))) |>
@@ -171,7 +171,7 @@ get_coverage_info <- function(coverage_fname) {
            condition = gsub("_\\d+$", "", condition)) |>
     filter(condition %in% c(opts$options$cond1, opts$options$cond2),
            Ref %in% df$Ref)
-
+  
   # cov_cond1 <- cov |>
   #   filter(condition == opts$options$cond1) |>
   #   select(Ref, condition, coverage) |>
@@ -192,7 +192,7 @@ order_by_helper <- function(df, coverage_summary, trna_labels) {
   if (!is.null(coverage_summary)) {
     coverage_summary$trna_label <- factor(coverage_summary$trna_label, levels = trna_labels, ordered = TRUE)
   }
-
+  
   return(list("df" = df, coverage_summary = coverage_summary))
 }
 order_by_coverage <- function(df, coverage_summary) {
@@ -207,26 +207,26 @@ order_by_coverage <- function(df, coverage_summary) {
 order_by_trna <- function(df, coverage_summary) {
   trna_labels <- unique(df$trna_label) |>
     rev()
-
+  
   df$trna <- factor(df$trna_label, levels = trna_labels, ordered = TRUE)
   if (!is.null(coverage_summary)) {
     coverage_summary$trna <- factor(coverage_summary$trna, levels = trna_labels, ordered = TRUE)
   }
-
+  
   return(order_by_helper(df, coverage_summary, trna_labels))
 }
 
 add_mods <- function(df, mods_fname) {
   mods <- read.table(mods_fname, header = TRUE, sep = "\t", quote = "", comment.char = "")
   mods$trna_coords <- paste0(df$trna, ":", mods$pos)
-
+  
   df <- left_join(df, mods,
                   by = join_by(trna_coords))
   i <- is.na(df$mod)
   if (any(i)) {
     df$mod <- ""
   }
-
+  
   return(df)
 }
 
@@ -235,7 +235,7 @@ add_mod_abbrevs <- function(df, mod_abbrevs_fname) {
   colnames(mod_abbrevs) <- paste0("mod_", colnames(mod_abbrevs))
   df <- left_join(df, mod_abbrevs,
                   by = join_by(mod == mod_abbrev))
-
+  
   return(mod_abbrevs)
 }
 
@@ -248,7 +248,23 @@ add_mod_label <- function(df) {
     i <- is.na(df$mod_abbrev) || df$mod_abbrev != ""
     df$mod_label[i] <- df$mod_abbrev[i]
   }
+  
+  return(df)
+}
 
+
+remove_missing_positions <- function(df) {
+  tbl <- table(df$position, is.na(df$ref))
+  if ("FALSE" %in% colnames(tbl)) {
+    tbl[, "FALSE"] == 0
+    i <- tbl[, "FALSE"] == 0
+    if (any(i)) {
+      missing_positions <- rownames(tbl[i, ])
+      df <- df |>
+        filter(!position %in% missing_positions)
+    }
+  }
+  
   return(df)
 }
 
@@ -263,9 +279,23 @@ add_missing_values <- function(df, opts, cols = c("trna_label", "position")) {
       df[i, "mod_label"] <- ""
     }
   }
-
+  
   df <- tidyr::complete(df, !!! rlang::syms(cols), fill = fill)
-
+  
+  # trna
+  # amino_acid
+  # anti_codon
+  
+  fixes <- df |>
+    select(trna_label, trna, strand, amino_acid, anti_codon) |>
+    filter(!if_any(everything(), is.na)) |>
+    distinct()
+  df <- df |>
+    select(-c(trna, strand, amino_acid, anti_codon)) |>
+    inner_join(
+      fixes,
+      by = join_by(trna_label))
+  
   df
 }
 
@@ -291,13 +321,13 @@ plot_coverage <- function(coverage_summary, xlab = "reads") {
           legend.title = element_blank(),
           legend.direction = "vertical",
           axis.title.y = element_blank())
-
+  
   if (unique(coverage_summary$replicate) %>% length() == 1) {
     p <- p + geom_col(position = position_dodge2())
   } else {
     p <- p + geom_point(position = position_dodge2(width = 0.5))
   }
-
+  
   p
 }
 
@@ -308,11 +338,11 @@ plot_mod_table <- function(df) {
     distinct() |>
     select(all_of(c("mod_abbrev", "mod_short_name"))) |>
     dplyr::rename(`RNAMods\ncode` = "mod_abbrev", `Mod.` = "mod_short_name")
-
+  
   return(gridExtra::tableGrob(df, rows = NULL))
 }
 
-plot_heatmap <- function(df, xlab = "position", harmonize_scaling = NULL) {
+plot_heatmap <- function(df, xlab = "position", harmonize_scaling = NULL, title = NULL) {
   p <- df |>
     ggplot(aes(x = position, y = trna_label, fill = score)) +
     geom_tile(colour = "white") +
@@ -329,7 +359,7 @@ plot_heatmap <- function(df, xlab = "position", harmonize_scaling = NULL) {
           # TODO text = element_text(family = "mono"),
           axis.title.y = element_blank(),
           plot.margin = margin(0, .5, 0, 0))
-
+  
   # ensure same scaling for all plots
   if (!is.null(harmonize_scaling)) {
     p <- p +
@@ -341,7 +371,7 @@ plot_heatmap <- function(df, xlab = "position", harmonize_scaling = NULL) {
       scale_fill_gradient(low = "yellow", high = "blue",
                           na.value = "grey")
   }
-
+  
   # mark flagged positions
   if (any(df$flag_position)) {
     p <- p + geom_point(data = df |>
@@ -367,14 +397,20 @@ plot_heatmap <- function(df, xlab = "position", harmonize_scaling = NULL) {
   #       p <- p + geom_text(aes(label = mod))
   #     }
   # }
-
+  
   # mark special positions
   if (any(df$mark_position)) {
-    p <- p + geom_point(data = df |>
-                        filter(mark_position == TRUE),
-                        shape = 4, color = "green")
+    p <- p + geom_tile(data = df |>
+                         filter(mark_position == TRUE),
+                       color = "red")
   }
-
+  
+  if (!is.null(title)) {
+    title <- gsub("\\{anti_codon\\}", paste0(unique(na.omit(df$anti_codon)), collapse = ", "), title)
+    title <- gsub("\\{amino_acid\\}", paste0(unique(na.omit(df$amino_acid)), collapse = ", "), title)
+    p <- p + ggtitle(title)
+  }
+  
   p
 }
 
@@ -387,11 +423,11 @@ plot_extended <- function(df, coverage_summary, plot_args, condition1, condition
   p_score <- df |>
     mutate(trna_label = "Score") |>
     plot_heatmap(xlab = plot_args[["position_xlab"]],
-                 harmonize_scaling = plot_args[["harmonize_scaling"]]) + # TODO test hatmonize scaling
-      theme(axis.text.x = element_blank(),
-            axis.text.y = element_text(size = 10, colour = "black" ),
-            axis.title.x = element_blank())
-
+                 harmonize_scaling = plot_args[["harmonize_scaling"]]) +
+    theme(axis.text.x = element_blank(),
+          axis.text.y = element_text(size = 10, colour = "black" ),
+          axis.title.x = element_blank())
+  
   # p_read_cov <- df |> 
   #   select(position, starts_with("reads_")) |>
   #   tidyr::pivot_longer(cols = starts_with("reads_"), values_to = "reads") |>
@@ -417,7 +453,7 @@ plot_extended <- function(df, coverage_summary, plot_args, condition1, condition
   #         panel.grid.minor = element_blank(),
   #         plot.margin = margin(0, .5, 0, 0)) +
   #   ggtitle(title)
-
+  
   p_cov <- df |>
     select(position, starts_with("ref_base_calls_"), starts_with("nonref_base_calls_"), starts_with("insertions_"), starts_with("deletions_")) |>
     tidyr::pivot_longer(cols = c(starts_with("ref_base_calls_"), starts_with("nonref_base_calls_"), starts_with("insertions_"), starts_with("deletions_")), values_to = "count") |>
@@ -446,7 +482,7 @@ plot_extended <- function(df, coverage_summary, plot_args, condition1, condition
           plot.margin = margin(0, .5, 0, 0)) +
     ggtitle(title) +
     facet_wrap(sample ~ ., ncol = 1, strip.position = "right")
-
+  
   ratios_long <- df |> 
     select(position, starts_with("nonref_ratio_"), starts_with("insertion_ratio_"), starts_with("deletion_ratio_")) |>
     tidyr::pivot_longer(cols = c(starts_with("nonref_ratio_"), starts_with("insertion_ratio_"), starts_with("deletion_ratio_")), values_to = "ratio")
@@ -473,7 +509,7 @@ plot_extended <- function(df, coverage_summary, plot_args, condition1, condition
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           plot.margin = margin(0, .5, 0, 0))
-
+  
   p_ref <- df |> 
     mutate(trna_label = "Reference") |>
     ggplot(aes(x = position, y = trna_label, label = ref)) +
@@ -490,10 +526,10 @@ plot_extended <- function(df, coverage_summary, plot_args, condition1, condition
           axis.title.y = element_blank(),
           axis.text.x = element_text(angle = 90, size = 8, vjust = 0.5, hjust = 1),
           plot.margin = margin(0, .5, 0, 0))
-
+  
   # TODO
   # add indels-sequence logo
-
+  
   p <- 
     p_cov / 
     p_ratios /
@@ -501,7 +537,7 @@ plot_extended <- function(df, coverage_summary, plot_args, condition1, condition
     p_ref + 
     plot_layout(nrow = 4, heights = unit(c(6, 3, -1, -1), c("cm", "cm", "null", "null"))) +
     plot_layout(guides = "collect")
-
+  
   return(p)
 }
 
@@ -510,14 +546,9 @@ plot_combined <- function(df, coverage_summary, plot_args) {
   widths <- c(8)
   p <- plot_heatmap(df,
                     xlab = plot_args[["position_xlab"]],
-                    harmonize_scaling = plot_args[["harmonize_scaling"]])
-  if (!is.null(plot_args$title)) {
-    title <- plot_args$title
-    title <- gsub("\\{anti_codon\\}", paste0(unique(na.omit(df$anti_codon)), collapse = ", "), title)
-    title <- gsub("\\{amino_acid\\}", paste0(unique(na.omit(df$amino_acid)), collapse = ", "), title)
-    p <- p + ggtitle(title)
-  }
-
+                    harmonize_scaling = plot_args$harmonize_scaling,
+                    title = plot_args$title)
+  
   if (!is.null(coverage_summary)) {
     ncol <- ncol + 1
     widths <- c(widths, 2)
@@ -525,15 +556,15 @@ plot_combined <- function(df, coverage_summary, plot_args) {
       plot_coverage(coverage_summary, plot_args[["coverage_xlab"]]) +
       theme(axis.text.y = element_blank())
   }
-
+  
   if ("mod_label" %in% colnames(df) && any(df$mod_label != "")) {
     ncol <- ncol + 1
     widths <- c(widths, 2)
     p <- p | plot_mod_table(df)
   }
-
+  
   p <- p + plot_layout(ncol = ncol, widths = unit(c(-1, 4), c("null", "cm")))
-
+  
   p
 }
 
@@ -571,62 +602,78 @@ save_plot <- function(df, p, output) {
 
 split_isoacceptor <- function(df, coverage_summary, output_dir, plot_args, process_args) {
   # check if no amino_acid or anticodon
-  i <- is.na(df$amino_acid) || df$amino_acid == ""
+  i <- is.na(df$amino_acid) | df$amino_acid == ""
   if (any(i)) {
     warning("Missing 'amino_acid': ", output_dir)
   }
-
+  
   l_df <- split(df, df$amino_acid)
   amino_acids <- names(l_df)
-
+  
   l_coverage_summary <- list
   if (!is.null(coverage_summary)) {
-    stopifnot(length(setdiff(unique(coverage_summary$amino_acid), unique(df$amino_acid))))
     l_coverage_summary <- split(coverage_summary, coverage_summary$amino_acid)
   }
-
+  
   for (amino_acid in amino_acids) {
     tmp_df <- l_df[[amino_acid]]
+    tmp_df <- remove_missing_positions(tmp_df)
     tmp_coverage_summary <- l_coverage_summary[[amino_acid]]
     if (!is.null(process_args$sort_by_callback)) {
       res <- process_args$sort_by_callback(tmp_df, tmp_coverage_summary)
       tmp_df <- res$df
       tmp_coverage_summary <- res$coverage_summary
     }
-
-    p <- plot_combined(tmp_df, tmp_coverage_summary, plot_args)
-    save_plot(df, p, file.path(output_dir, paste0(amino_acid, ".pdf")))
+    
+    p <- plot_heatmap(tmp_df,
+                      xlab = plot_args[["position_xlab"]],
+                      harmonize_scaling = plot_args$harmonize_scaling,
+                      title = plot_args$title)
+    save_plot(df, p, file.path(output_dir, paste0(amino_acid, "_heatmap.pdf")))
+    if (!is.null(tmp_coverage_summary)) {
+      p <- plot_combined(tmp_df, NULL, plot_args)
+      ggsave(file.path(output_dir, paste0(amino_acid, "_combined.pdf")), p)
+    }
   }
 }
 
 split_isodecoder <- function(df, coverage_summary, output_dir, plot_args, process_args) {
   # check if no amino_acid or anticodon
-  i <- is.na(df$amino_acid) | df$amino_acid == "" |
-           is.na(df$anti_codon) | df$anti_codon == ""
+  i <- is.na(df$anti_codon) | df$anti_codon == ""
   if (any(i)) {
-    warning("Missing 'amino_acid' or 'anti_codon' for: ", output_dir)
+    warning("Missing 'anti_codon' for: ", output_dir)
   }
-
-  l_df <- split(df, paste0(df$amino_acid, "-", df$anti_codon))
+  
+  l_df <- split(df, df$anti_codon)
   isodecoders <- names(l_df)
-
+  
   l_coverage_summary <- list()
   if (!is.null(coverage_summary)) {
     l_coverage_summary <- split(
       coverage_summary,
-      paste0(coverage_summary$amino_acid, "-", coverage_summary$anti_codon))
+      coverage_summary$anti_codon)
   }
-
+  
   for (isodecoder in isodecoders) {
     tmp_df <- l_df[[isodecoder]]
+    tmp_df <- remove_missing_positions(tmp_df)
     tmp_coverage_summary <- l_coverage_summary[[isodecoder]]
     if (!is.null(process_args$sort_by_callback)) {
       res <- process_args$sort_by_callback(tmp_df, tmp_coverage_summary)
       tmp_df <- res$df
       tmp_coverage_summary <- res$coverage_summary
     }
-    p <- plot_combined(tmp_df, tmp_coverage_summary, plot_args)
-    save_plot(df, p, file.path(output_dir, paste0(isodecoder, ".pdf")))
+    
+    p <- plot_heatmap(tmp_df,
+                      xlab = plot_args$position_xlab,
+                      harmonize_scaling = plot_args$harmonize_scaling,
+                      title = plot_args$title)
+    output <- file.path(output_dir, paste0(isodecoder, "_heatmap.pdf"))
+    ggsave(output, p, width = 15, height = 15)
+    if (!is.null(coverage_summary)) {
+      p <- plot_combined(tmp_df, tmp_coverage_summary, plot_args)
+      save_plot(df, p, file.path(output_dir, paste0(isodecoder, ".pdf")))
+    }
   }
 }
 split_all <- function(df, coverage_summary, output_dir, plot_args, process_args) {
@@ -635,24 +682,34 @@ split_all <- function(df, coverage_summary, output_dir, plot_args, process_args)
     df <- res$df
     coverage_summary <- res$coverage_summary
   }
-  p <- plot_combined(df, coverage_summary, plot_args)
-  output <- file.path(output_dir, "all.pdf")
-  save_plot(df, p, output)
+  df <- remove_missing_positions(df)
+  
+  p <- plot_heatmap(df,
+                    xlab = plot_args$position_xlab,
+                    harmonize_scaling = plot_args$harmonize_scaling,
+                    title = plot_args$title)
+  output <- file.path(output_dir, "all_heatmap.pdf")
+  ggsave(output, p, width = 15, height = 15)
+  if (!is.null(coverage_summary)) {
+    p <- plot_combined(df, coverage_summary, plot_args)
+    output <- file.path(output_dir, "all.pdf")
+    save_plot(df, p, output)
+  }
 }
 
 split_extended <- function(df, coverage_summary, output_dir, plot_args, process_args, condition1, condition2) {
   l_df <- split(df, df$trna)
   trnas <- names(l_df)
-
+  
   l_coverage_summary <- list()
   if (!is.null(coverage_summary)) {
     # all trnas in df must have a match in coverage summary
-
+    
     l_coverage_summary <- split(
       coverage_summary,
       coverage_summary$trna)
   }
-
+  
   for (trna in trnas) {
     tmp_df <- l_df[[trna]]
     tmp_coverage_summary <- l_coverage_summary[[trna]]
@@ -691,14 +748,15 @@ get_process_args <- function(opts) {
 
 get_plot_args <- function(df, opts) {
   title <- NULL
-  if (!is.null(opts$options$title)) {  
+  if (!is.null(opts$options$title)) {
     title <- opts$options$title
     title <- gsub("\\{condition1\\}", opts$options$condition1, title)
     title <- gsub("\\{condition2\\}", opts$options$condition2, title)
     title <- gsub("\\{score\\}", opts$options$score_column, title)
+    title <- gsub("\\{bam_type\\}", opts$options$bam_type, title)
     title <- gsub("\\{position_column\\}", opts$options$position_column, title)
   }
-
+  
   position_xlab <- "position"
   if (opts$options$position_column == "sprinzl") {
     position_xlab <- "Sprinzl pos."
@@ -717,12 +775,21 @@ get_plot_args <- function(df, opts) {
   
   harmonize_scaling <- opts$options$harmonize_scaling
   if (!is.null(harmonize_scaling)) {
+    max_scores <- read.table(opts$options$max_scores, header = TRUE, sep = "\t")
+    
     if (harmonize_scaling == "-1") {
       harmonize_scaling <- max(df$score, na.rm = TRUE)
+    } else if (harmonize_scaling == "-2") {
+      harmonize_scaling <- max_scores |>
+        filter(cond1 == opts$options$condition1, cond2 == opts$options$condition2) |>
+        pull(opts$options$score) |>
+        max()
+    } else if (harmonize_scaling == "-3") {
+      harmonize_scaling <- max(max_scores[[opts$options$score]])
     }
     harmonize_scaling <- as.numeric(harmonize_scaling)
   }
-
+  
   return(list(
     "title" = title,
     "position_xlab" = position_xlab,
@@ -823,12 +890,16 @@ option_list <- list(
               type = "character",
               default = NULL,
               help = "Mark specific positions in plot, e.g.: tRNA:position, use ','"),
-  make_option(c("--max_score"),
-              type = "numeric",
-              help = "Hide all scores exceeding MAX_SCORE"),
+  make_option(c("--max_scores"),
+              type = "character",
+              help = "File to max scores"),
   make_option(c("--harmonize_scaling"),
               type = "numeric",
               help = "Set to -1 to harmonize scaling between all plots; or set to some value."),
+  make_option(c("--bam_type"),
+              type = "character",
+              help = "Set to the bam type used.",
+              default = ""),
   make_option(c("--positions"),
               type = "character",
               default = NULL,
@@ -838,26 +909,29 @@ option_list <- list(
 ## parse CLI
 
 args <- c("--condition1=WT",
-         "--condition2=DNMT2",
-         "--score_column=MDI_subsampled",
-         "--split=isodecoder",
-         "--position_column=sprinzl",
-         "--ref_fasta=/beegfs/prj/tRNA_Francesca_Tuorto/index/all_human_tRNAs_v2_linkerNovoa_final.fa",
-         "--show_introns",
-         "--title={condition1} vs. {condition2}; score: {score}",
-         "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_modomics_sprinzl.tsv",
-         "--sort_by=coverage",
-         "--estimate_coverage",
-         "--five_adapter=23",
+          "--condition2=DNMT2",
+          "--score_column=MDI_subsampled",
+          "--split=all",
+          "--position_column=sprinzl",
+          "--ref_fasta=/beegfs/prj/tRNA_Francesca_Tuorto/index/all_human_tRNAs_v2_linkerNovoa_final.fa",
+          "--hide_varm",
+          #"--show_introns",
+          "--title={condition1} vs. {condition2}; score: {score}",
+          "--modmap=/beegfs/homes/mpiechotta/git/QutRNA/data/Hsapi38/human_modomics_sprinzl.tsv",
+          "--sort_by=trna",
+          "--estimate_coverage",
+          "--mark_positions=34",
+          "--amino_acids=Asp,Asn,Tyr,Gln,Glu,His,Leu,Thr,Gly,Val",
+          "--five_adapter=23",
           "--three_adapter=33",
-         "--harmonize_scaling=-1",
-         "--sprinzl=/beegfs/homes/mpiechotta/git/QutRNA/data/euk_sprinzl.txt",
-         "--output_dir=~/tmp/plot_score",
-         "--remove_prefix=Homo_sapiens_",
-         "/beegfs/prj/tRNA_Francesca_Tuorto/data/HCT116_tRNA_RNA004/2_biolrepl/output-strict-basq1//results/jacusa2/cond1~WT/cond2~DNMT2/scores_sprinzl.tsv")
+          "--harmonize_scaling=-1",
+          "--sprinzl=/beegfs/homes/mpiechotta/git/QutRNA/data/euk_sprinzl.txt",
+          "--output_dir=~/tmp/plot_score/all",
+          "--remove_prefix=Homo_sapiens_",
+          "/beegfs/prj/tRNA_Francesca_Tuorto/data/HCT116_tRNA_RNA004/2_biolrepl/output-strict-basq1//results/jacusa2/cond1~WT/cond2~DNMT2/scores_sprinzl.tsv")
 opts <- parse_args(
   OptionParser(option_list = option_list),
-  # args = args,
+  #args = args,
   positional_arguments = TRUE
 )
 
@@ -898,7 +972,7 @@ if (!is.null(opts$options$mod_abbrevs)) {
   stopifnot(!is.null(opts$options$mods))
 }
 
-## 
+##
 
 # read process JACUSA2 scores
 df <- read.table(opts$args, sep = "\t", header = TRUE)
@@ -909,7 +983,7 @@ stopifnot("seq_position" %in% colnames(df))
 
 # remove 5' adapter, if any
 if (!is.null(opts$options$five_adapter)) {
-  df <- df[df$seq_position > opts$options$five_adapter, ]  
+  df <- df[df$seq_position > opts$options$five_adapter, ]
 }
 # remove 3' adapter, if any
 if (!is.null(opts$options$three_adapter)) {
@@ -963,9 +1037,16 @@ if (!is.null(opts$options$flag_position)) {
 # mark specific positions
 df$mark_position <- FALSE
 if (!is.null(opts$options$mark_position)) {
-  mark_positions <- strsplit(opts$options$mark_positions, ",") |>
+  positions <- strsplit(opts$options$mark_positions, ",") |>
     unlist()
-  df <- mark_positions(df, mark_positions)
+  
+  i <- grepl(":", positions)
+  if (any(!i)) {
+    j <- df$position[!i] == positions
+    positions <- paste0(unique(df$trna[j]), ":", positions)
+  }
+  
+  df <- mark_positions(df, positions)
 }
 
 # process score columns
@@ -998,7 +1079,7 @@ coverage_summary$trna_label <- trna_label(coverage_summary, opts$options$remove_
 # add mods and abbreviations
 if (!is.null(opts$options$mods)) {
   df <- add_mods(df, opts$options$mods)
-
+  
   if (!is.null(opts$options$mod_abbrevs)) {
     df <- add_mods(df, opts$options$mods)
   }
@@ -1008,10 +1089,8 @@ if (!is.null(opts$options$mods)) {
 df <- add_missing_values(df, opts)
 
 # QUICK FIX
-# browser()
-df <- add_trna_details(df, col = "trna_label")
-coverage_summary <- add_trna_details(coverage_summary, col = "trna_label")
-# browser()
+#df <- add_trna_details(df, col = "trna")
+#coverage_summary <- add_trna_details(coverage_summary, col = "trna")
 
 # split data, plot, and save
 if (opts$options$split == "isoacceptor") {
