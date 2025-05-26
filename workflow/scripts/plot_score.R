@@ -629,10 +629,11 @@ split_isoacceptor <- function(df, coverage_summary, output_dir, plot_args, proce
                       xlab = plot_args[["position_xlab"]],
                       harmonize_scaling = plot_args$harmonize_scaling,
                       title = plot_args$title)
-    save_plot(df, p, file.path(output_dir, paste0(amino_acid, "_heatmap.pdf")))
+    ggsave(file.path(output_dir, paste0(amino_acid, "_heatmap.pdf")), p, width = 20, height = 20)
+    save(p, file = file.path(output_dir, paste0(amino_acid, "_heatmap.rdata")))
     if (!is.null(tmp_coverage_summary)) {
       p <- plot_combined(tmp_df, NULL, plot_args)
-      ggsave(file.path(output_dir, paste0(amino_acid, "_combined.pdf")), p)
+      save_plot(df, p, file.path(output_dir, paste0(amino_acid, "_combined.pdf")))
     }
   }
 }
@@ -668,11 +669,11 @@ split_isodecoder <- function(df, coverage_summary, output_dir, plot_args, proces
                       xlab = plot_args$position_xlab,
                       harmonize_scaling = plot_args$harmonize_scaling,
                       title = plot_args$title)
-    output <- file.path(output_dir, paste0(isodecoder, "_heatmap.pdf"))
-    ggsave(output, p, width = 15, height = 15)
+    ggsave(file.path(output_dir, paste0(isodecoder, "_heatmap.pdf")), p, width = 20, height = 20)
+    save(p, file = file.path(output_dir, paste0(isodecoder, "_heatmap.rdata")))
     if (!is.null(coverage_summary)) {
       p <- plot_combined(tmp_df, tmp_coverage_summary, plot_args)
-      save_plot(df, p, file.path(output_dir, paste0(isodecoder, ".pdf")))
+      save_plot(df, p, file.path(output_dir, paste0(isodecoder, "_combined.pdf")))
     }
   }
 }
@@ -689,7 +690,8 @@ split_all <- function(df, coverage_summary, output_dir, plot_args, process_args)
                     harmonize_scaling = plot_args$harmonize_scaling,
                     title = plot_args$title)
   output <- file.path(output_dir, "all_heatmap.pdf")
-  ggsave(output, p, width = 15, height = 15)
+  ggsave(output, p, width = 20, height = 20)
+  save(p, file = file.path(output_dir, "all_heatmap.rdata"))
   if (!is.null(coverage_summary)) {
     p <- plot_combined(df, coverage_summary, plot_args)
     output <- file.path(output_dir, "all.pdf")
