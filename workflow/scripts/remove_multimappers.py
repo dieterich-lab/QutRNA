@@ -10,7 +10,6 @@ args = parser.parse_args()
 
 # counter
 input_read_counter = 0
-# TODO
 
 # input <-> output
 in_samfile = pysam.AlignmentFile(args.bam, 'rb')
@@ -23,7 +22,7 @@ def write_reads(reads):
 
 
 def uniform_cigar(reads):
-    cigar = reads[0].cigarstring # FIXME Hard and Soft clipping
+    cigar = reads[0].cigarstring # TODO Hard and Soft clipping
     for read in reads:
         if cigar != read.cigarstring:
             return False
@@ -52,6 +51,3 @@ if args.keep_uniform_cigar and uniform_cigar(multimapper_reads):
     multimapper_reads.clear()
 out_samfile.close()
 in_samfile.close()
-
-# print out statistics
-# TODO

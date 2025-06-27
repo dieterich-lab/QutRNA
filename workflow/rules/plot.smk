@@ -33,10 +33,6 @@ def _plot_heatmap_opts(wildcards, input):
     if wildcards.COND1 == contrast["cond1"] and wildcards.COND2 == contrast["cond2"] and "flag" in contrast:
       opts.append("--flag_positions=" + ",".join(contrast["flag"]))
 
-  # TODO
-  if "coverages" in pep.config["qutrna"]:
-    opts.append("--coverage_info=" + input.coverages)
-
   if "score" in plot:
     opts.append("--score_column=" + plot["score"].split("::")[0])
   else:
@@ -51,9 +47,6 @@ def _plot_heatmap_opts(wildcards, input):
 def _plot_heatmap_input(wildcards):
   d = {"scores": "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}/" + SCORES,
        "fasta": REF_FASTA,}
-  # FIXME
-  if "coverages" in pep.config["qutrna"]:
-    d["coverages"] = pep.config["qutrna"]["coverages"]
 
   if "sprinzl" in pep.config["qutrna"]:
     d["sprinzl"] = SPRINZL

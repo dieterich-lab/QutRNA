@@ -18,7 +18,7 @@ def _jacusa2_input(cond_i, suffix=""):
 
 
 ################################################################################
-# Run JACUSA2 on BAMS(1,2)
+# Run JACUSA2 on BAMS(1 vs. 2)
 ################################################################################
 rule jacusa2_run:
   input: bam1=_jacusa2_input(1),
@@ -46,6 +46,8 @@ rule jacusa2_run:
         {params.bams2} \
         2> {log:q}
   """
+
+
 ################################################################################
 # Process JACUSA2 scores
 ################################################################################
@@ -68,34 +70,19 @@ rule jacusa2_add_scores:
   """
 
 
-rule jacusa2_add_seq_mods:
-  input: scores="results/jacusa2/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}/scores_seq.tsv",
+rule jacusa2_add_mods:
+  input: scores="results/jacusa2/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}/scores_{coord_type}.tsv",
          mods=MODS,
-  output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}/scores_seq-mods.tsv",
+  output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}/scores_{coord_type}-mods.tsv",
   conda: "qutrna",
   resources:
     mem_mb=10000
-  log: "logs/jacusa2/add_seq_mods/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}.log",
+  params:
+    coords=lambda wildcards: "--sprinzl" if wildcards.coord_type == "sprinzl" else ""
+  log: "logs/jacusa2/add_seq_mods/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}/{coord_type}.log",
   shell: """
     Rscript {workflow.basedir:q}/scripts/add_mods.R \
-        -m {input.mods:q} \
-        -o {output:q} \
-        {input.scores:q} \
-        2> {log:q}
-  """
-
-
-rule jacusa2_add_sprinzl_mods:
-  input: scores="results/jacusa2/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}/scores_sprinzl.tsv",
-         mods=MODS,
-  output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}/scores_sprinzl-mods.tsv",
-  conda: "qutrna",
-  resources:
-    mem_mb=10000
-  log: "logs/jacusa2/add_sprinzl_mods/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}.log",
-  shell: """
-    Rscript {workflow.basedir:q}/scripts/add_mods.R \
-        --sprinzl \
+        {params.coords} \
         -m {input.mods:q} \
         -o {output:q} \
         {input.scores:q} \
@@ -105,14 +92,15 @@ rule jacusa2_add_sprinzl_mods:
 
 def _input_jacusa2_max_scores(wildcards):
   targets = []
-  bam_types = ["final",] # FIXME remove intermediate plots
-  if FILTERS_APPLIED:
+
+  bam_types = ["final",]
+  if config["plot_preprocessed"] and FILTERS_APPLIED:
     bam_types += FILTERS_APPLIED
   for conds in pep.config["qutrna"]["contrasts"]:
     cond1 = conds["cond1"]
     cond2 = conds["cond2"]
 
-    fname =  "results/jacusa2/cond1~{cond1}/cond2~{cond2}/bams~{bam_type}/scores_sprinzl.tsv" # FIXME
+    fname =  "results/jacusa2/cond1~{cond1}/cond2~{cond2}/bams~{bam_type}/" + SCORES
     targets.extend(expand(fname,
                cond1=cond1, cond2=cond2,
                bam_type=bam_types))

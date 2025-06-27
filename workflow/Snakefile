@@ -7,14 +7,16 @@ import pandas as pd
 from snakemake.utils import validate
 
 
-VERSION = "2.0.0-DEV-2"
+VERSION = "2.0.0-DEV-4"
 
 
+# validate schemas
 validate(config, "schemas/config.yaml")
 pepfile: config["pepfile"]
 pepschema: "schemas/pep.yaml"
 
 
+# manage snakemake includes
 include: "rules/common.smk"
 include: "rules/filter.smk"
 include: "rules/samtools.smk"
@@ -25,14 +27,7 @@ include: "rules/plot.smk"
 include: "rules/info.smk"
 
 
-# TODO check
 def target_alignment():
-  conds = set()
-  for cond in pep.config["qutrna"]["contrasts"]:
-    conds.add(cond["cond1"])
-    conds.add(cond["cond2"])
-  conds = list(conds)
-
   tbl = TBL.set_index("condition")
   targets = []
   for row in tbl.itertuples():
@@ -52,8 +47,8 @@ def target_sprinzl():
 def target_trna_plots():
   targets = []
 
-  bam_types = ["final",] # FIXME remove intermediate plots
-  if FILTERS_APPLIED:
+  bam_types = ["final",]
+  if config["plot_preprocessed"] and FILTERS_APPLIED:
     bam_types += FILTERS_APPLIED
 
   for conds in pep.config["qutrna"]["contrasts"]:
@@ -102,9 +97,7 @@ def target_info():
 
   return targets
 
-
-###
-
+# possible targets for snakemake
 
 rule all:
   input: target_all() + target_info() + target_read_plots()

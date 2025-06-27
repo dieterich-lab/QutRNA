@@ -71,10 +71,8 @@ def create_include(name, input, output, params):
     run:
         if params.include == "copy":
           cmd = "cp"
-        else:
+        elif params.include == "link":
           cmd = "ln -s"
-
-        cmd = "cp" # FIXME
 
         shell(cmd + " {input:q} {output:q}")
 
@@ -89,7 +87,7 @@ if pep.config["qutrna"]["coords"] == "sprinzl":
   create_include("sprinzl",
                  pep.config["qutrna"]["sprinzl"],
                  SPRINZL,
-                 config["include"].get("sprinzl", True))
+                 config["include"].get("sprinzl", "copy"))
   if "cm" in pep.config["qutrna"]:
     create_include("cm",
                    pep.config["qutrna"]["cm"],
@@ -100,7 +98,7 @@ if pep.config["qutrna"]["coords"] == "sprinzl":
     create_include("seq_to_sprinzl",
                    pep.config["qutrna"]["seq_to_sprinzl"],
                    SEQ_TO_SPRINZL,
-                   config["include"].get("seq_to_sprinzl", True))
+                   config["include"].get("seq_to_sprinzl", "copy"))
   else:
     raise Exception("Must provide other 'cm' or 'seq_to_sprinzl'!")
 
@@ -187,24 +185,9 @@ rule remove_trnas:
   """
 
 
-# TODO remove
-#def _collect_read_counts_input(wildcards):
-#  t2fnames = {}
-#  for sample in SAMPLES:
-#    df = TBL.loc[[sample]]
-#    # collect subsamples
-#    for row in df.itertuples(index=False):
-#      if not hasattr(row, "bam"):
-#        raise Exception("Not implemented yet") # TODO implement, when BAM not available
-#      t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_read_count.txt") # TODO what if no base calling
-#      for read_type in FILTERS_APPLIED:
-#        t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_read_count.txt") # TODO what if no base calling
-#
-#  return t2fnames
-
-
 def _collect_input(suffix):
   def helper(wildcards):
+    parsed = suffix.format(wildcards=wildcards)
     t2fnames = {}
     for sample in SAMPLES:
       df = TBL.loc[[sample]]
@@ -212,15 +195,16 @@ def _collect_input(suffix):
       for row in df.itertuples(index=False):
         if not hasattr(row, "bam"):
           raise Exception("Not implemented yet") # TODO implement, when BAM not available
-        t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.{suffix}") # TODO what if no base calling
+        t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.{parsed}") # TODO what if no base calling
         for read_type in FILTERS_APPLIED:
-          t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.{suffix}") # TODO what if no base calling
+          t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.{parsed}") # TODO what if no base calling
     return t2fnames
 
   return helper
 
+
 rule collect_read_counts:
-  input: unpack(_collect_input("sorted_read_count.txt"))
+  input: unpack(_collect_input("sorted_read_count.txt")),
   output: "results/read_counts.tsv"
   run:
     dfs = []
@@ -276,24 +260,8 @@ rule cut_samtools_stats:
   """
 
 
-def _collect_samtools_input(wildcards):
-  t2fnames = {}
-  for sample in SAMPLES:
-    df = TBL.loc[[sample]]
-    # collect subsamples
-    for row in df.itertuples(index=False):
-      if not hasattr(row, "bam"):
-        raise Exception("Not implemented yet") # TODO implement, when BAM not available
-
-      t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_stats_{wildcards.type}.tsv") # TODO what if no base calling
-      for read_type in FILTERS_APPLIED:
-        t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.sorted_stats_{wildcards.type}.tsv") # TODO what if no base calling
-
-  return t2fnames
-
-
 rule collect_samtools_stats:
-  input: unpack(_collect_samtools_input)
+  input: unpack(_collect_input("sorted_stats_{wildcards.type}.tsv"))
   output: "results/samtools/stats/{type}.tsv",
   run:
     type2cols = {
