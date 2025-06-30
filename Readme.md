@@ -290,13 +290,13 @@ Setup `analysis.yaml`, `data.yaml`, and `sample_table.tsv`.
 Replace `<QUTRNA>` with the directory where you cloned the repository, add paths to the YAML files and start the workflow with:
 
 ```console
-snakemake -c 1 -f <QUTRNA>/workflow/Snakefile --pep data.yaml --configfile=analysis.yaml
+snakemake -c 1 -f <QUTRNA>/workflow/Snakefile --config pepfile=data.yaml --configfile=analysis.yaml
 ```
 
 In case, you are only interested in the parasail alignment, add the intermediate target `alignment`:
 
 ```console
-snakemake -c 1 -f <QUTRNA>/workflow/Snakefile --pep data.yaml --configfile=analysis.yaml alignment
+snakemake -c 1 -f <QUTRNA>/workflow/Snakefile --config pepfile=data.yaml --configfile=analysis.yaml alignment
 ```
 
 #### Output
