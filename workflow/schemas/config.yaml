@@ -13,7 +13,7 @@ properties:
       opts:
         type: string
         description: Options for parasail
-        default: -a sw_trace_striped_sse41_128_16 -M 2 -X 1 -c 10 -x -d
+        default: -a sw_trace_striped_sat -M 1 -X 1 -e 1 -o 1 -x -d
       batch_size:
         type: integer
         description: Number of reads to process in batch before writing
