@@ -1,4 +1,3 @@
-from io import StringIO
 import click
 import pandas as pd
 
@@ -6,7 +5,7 @@ from Bio import AlignIO
 
 
 @click.command()
-@click.option("--output", type=click.Path(exists=False))
+@click.option("--output", type=click.Path())
 @click.argument("ss_cons_mapping", type=click.Path(exists=True))
 @click.argument("stk", type=click.Path(exists=True))
 def mapping(ss_cons_mapping, stk, output):

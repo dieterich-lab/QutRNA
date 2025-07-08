@@ -10,5 +10,5 @@ args = parser.parse_args()
 in_samfile = pysam.AlignmentFile(args.bam, 'rb')
 
 for read in in_samfile.fetch(until_eof=True):
-    alignment_score = get_tag("AS")
+    alignment_score = read.get_tag("AS")
     print(f"{alignment_score}\n")

@@ -4,11 +4,10 @@ from Bio import SeqIO
 
 
 @click.command()
-@click.option("--output", type=click.Path(exists=False))
+@click.option("--output", type=click.Path())
 @click.option("--trna", "-t", type=str, multiple=True)
 @click.argument("fasta", type=click.Path(exists=True))
-def filter(fasta, output, trna):
-    filtered_seqs = []
+def process(fasta, output, trna):
     records = SeqIO.parse(fasta, "fasta")
 
     if trna:
@@ -20,4 +19,4 @@ def filter(fasta, output, trna):
 
 
 if __name__ == '__main__':
-    filter()
+    process()

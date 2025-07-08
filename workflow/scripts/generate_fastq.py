@@ -10,7 +10,7 @@ from Bio import SeqIO
 @click.option("-r", "--reverse",is_flag=True, default=False, help="Reverse sequence.")
 @click.option("-o", "--output", required=True,
               type=click.Path(),)
-@click.argument("fastq", type=click.Path("r"))
+@click.argument("fastq", type=click.Path())
 def generate_fastq(fastq, u2t, reverse, output):
     """Generate FASTQ for parasail"""
 

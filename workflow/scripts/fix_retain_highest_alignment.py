@@ -19,7 +19,7 @@ def fix_mapq(r):
 @click.option("-m", "--min-mapq",
               type=int,
               default=20)
-def filter(min_mapq):
+def process(min_mapq):
     t = None
     for r in infile:
         if r.has_tag("AS"):
@@ -29,7 +29,7 @@ def filter(min_mapq):
             continue
 
         if t:
-            if t.qname == r.qname:
+            if t.query_name == r.query_name:
                 if r.mapping_quality > t.mapping_quality:
                     t = r
             else:
@@ -47,4 +47,4 @@ def filter(min_mapq):
 
 
 if __name__ == '__main__':
-    filter()
+    process()

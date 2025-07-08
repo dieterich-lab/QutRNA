@@ -1,6 +1,5 @@
 import argparse
 import pysam
-import re
 
 # parser related
 parser = argparse.ArgumentParser(prog="process_read.py",)
@@ -47,7 +46,7 @@ def _trim_cigar(cigar, read):
     return cigar, aln_offset
 
 
-def trim_cigar(read, samfile):
+def trim_cigar(read, _):
     global trim_cigar_counter
 
     new_cigar, aln_offset = _trim_cigar(list(read.cigartuples), read)
@@ -82,7 +81,7 @@ out_samfile = pysam.AlignmentFile("-", "wb", template=in_samfile)
 for read in in_samfile.fetch(until_eof=True):
     input_read_counter += 1
     if args.min_read_length or args.max_read_length:
-        read_len = len(read.seq)
+        read_len = len(read.query_sequence)
         if args.min_read_length and args.min_read_length > read_len :
             read_length_counter += 1
             continue

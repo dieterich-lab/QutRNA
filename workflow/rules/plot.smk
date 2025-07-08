@@ -1,3 +1,11 @@
+from snakemake.io import directory
+
+global DEFAULT_SCORE
+global REF_FASTA
+global SCORES
+global SPRINZL
+
+
 ################################################################################
 # Plot JACUSA2 score: Mis+Del+Ins
 ################################################################################
@@ -44,7 +52,7 @@ def _plot_heatmap_opts(wildcards, input):
   return " ".join(opts)
 
 
-def _plot_heatmap_input(wildcards):
+def _plot_heatmap_input(_):
   d = {"scores": "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bams~{bam_type}/" + SCORES,
        "fasta": REF_FASTA,}
 
@@ -58,12 +66,12 @@ def _plot_heatmap_input(wildcards):
 
 rule plot_heatmap:
   input: unpack(_plot_heatmap_input)
-  output: directory("results/plots/cond1~{COND1}/cond2~{COND2}/{plot_id}/bams~{bam_type}"),
-  conda: "qutrna",
+  output: directory("results/plots/cond1~{COND1}/cond2~{COND2}/{plot_id}/bams~{bam_type}")
+  conda: "qutrna"
   resources:
     mem_mb=10000
-  log: "logs/plot/heatmap/cond1~{COND1}/cond2~{COND2}/{plot_id}/bams~{bam_type}.log",
-  params: opts=_plot_heatmap_opts,
+  log: "logs/plot/heatmap/cond1~{COND1}/cond2~{COND2}/{plot_id}/bams~{bam_type}.log"
+  params: opts=_plot_heatmap_opts
   shell: """
     ( mkdir -p {output} && \
       Rscript {workflow.basedir}/scripts/plot_score.R \
@@ -73,47 +81,47 @@ rule plot_heatmap:
           --max_scores {input.max_scores} \
           --ref_fasta {input.fasta:q} \
           --output_dir {output:q} {input.scores:q} \
-          {params.opts} ) 2> {log:q}
+          {params.opts} ) 2> "{log}"
   """
 
 
 rule plot_read_counts:
-  input: "results/read_counts.tsv",
-  output: "results/plots/read_counts.pdf",
-  conda: "qutrna",
+  input: "results/read_counts.tsv"
+  output: "results/plots/read_counts.pdf"
+  conda: "qutrna"
   resources:
     mem_mb=10000
-  log: "logs/plot/read_counts.log",
+  log: "logs/plot/read_counts.log"
   shell: """
     Rscript {workflow.basedir}/scripts/plot_read_counts.R \
          --output {output:q} {input:q} \
-         2> {log:q}
+         2> "{log}"
   """
 
 
 rule plot_read_length:
-  input: "results/samtools/stats/RL.tsv",
-  output: "results/plots/read_length.pdf",
-  conda: "qutrna",
+  input: "results/samtools/stats/RL.tsv"
+  output: "results/plots/read_length.pdf"
+  conda: "qutrna"
   resources:
     mem_mb=10000
-  log: "logs/plot/read_length.log",
+  log: "logs/plot/read_length.log"
   shell: """
     Rscript {workflow.basedir}/scripts/plot_read_length.R \
          --output {output:q} {input:q} \
-         2> {log:q}
+         2> "{log}"
   """
 
 
 rule plot_multimapper:
-  input: "results/stats/multimapper.tsv",
-  output: "results/plots/multimapper.pdf",
-  conda: "qutrna",
+  input: "results/stats/multimapper.tsv"
+  output: "results/plots/multimapper.pdf"
+  conda: "qutrna"
   resources:
     mem_mb=10000
-  log: "logs/plot/multimapper.log",
+  log: "logs/plot/multimapper.log"
   shell: """
     Rscript {workflow.basedir}/scripts/plot_multimapper.R \
          --output {output:q} {input:q} \
-         2> {log:q}
+         2> "{log}"
   """

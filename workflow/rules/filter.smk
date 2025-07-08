@@ -1,4 +1,10 @@
 # FIXME return value vs. rule
+from snakemake import shell
+from snakemake.io import temp
+
+
+global REF_FASTA
+
 
 def _filter_input_helper(i):
    bam = FILTER2OUTPUT[i - 1]
@@ -23,13 +29,13 @@ def _filter_samtools(i):
   FILTERS_APPLIED.append("samtools")
 
   rule:
-    name: "dny_filter_samtools",
-    input: **input_,
-    output: temp(output_),
+    name: "dny_filter_samtools"
+    input: **input_
+    output: temp(output_)
     log: f"logs/preprocessed/{i}_samtools/{{filename}}.log"
     params:
       filter=config_filter,
-      calmd=config_calmd,
+      calmd=config_calmd
     run:
       cmds = ["samtools view {params.filter} -b {input.bam}", ]
       if params.calmd:
@@ -54,11 +60,11 @@ def _filter_trim_cigar(i):
 
   rule:
     name: "dyn_filter_trim_cigar"
-    input: **input_,
-    output: **output_,
+    input: **input_
+    output: **output_
     log: f"logs/preprocessed/{i}_trim_cigar/{{filename}}.log"
     params:
-      trim_cigar=config_trim_cigar,
+      trim_cigar=config_trim_cigar
     run:
       cmds = [
         "python " + os.path.join(workflow.basedir, "scripts", "process_read.py") + " --stats {output.stats} --trim-cigar {input.bam} ",
@@ -83,13 +89,13 @@ def _filter_read_length(i):
   FILTERS_APPLIED.append("read_length")
 
   rule:
-    name: "dyn_filter_read_length",
-    input: **input_,
-    output: **output_,
+    name: "dyn_filter_read_length"
+    input: **input_
+    output: **output_
     log: f"logs/preprocessed/{i}_read_length/{{filename}}.log"
     params:
       min=config["preprocess"]["read_length"]["min"],
-      max=config["preprocess"]["read_length"]["max"],
+      max=config["preprocess"]["read_length"]["max"]
     run:
       process_read_opts = []
       if params.min:
@@ -114,13 +120,13 @@ def _filter_alignment_length(i):
   FILTERS_APPLIED.append("alignment_length")
 
   rule:
-    name: "dyn_filter_alignment_length",
-    input: **input_,
-    output: **output_,
+    name: "dyn_filter_alignment_length"
+    input: **input_
+    output: **output_
     log: f"logs/preprocessed/{i}_alignment_length/{{filename}}.log"
     params:
       min=config["preprocess"]["alignment_length"]["min"],
-      max=config["preprocess"]["alignment_length"]["max"],
+      max=config["preprocess"]["alignment_length"]["max"]
     run:
       process_read_opts = []
       if params.min:
@@ -151,11 +157,11 @@ def _filter_remove_multimappers(i):
 
   rule:
     name: "dyn_filter_remove_multimappers"
-    input: **input_,
-    output: **output_,
+    input: **input_
+    output: **output_
     log: f"logs/preprocessed/{i}_multimappers/{{filename}}.log"
     params:
-      opts=opts_helper(conf),
+      opts=opts_helper(conf)
     shell: """
       ( samtools sort -n {input.bam:q} | \
           python {workflow.basedir}/scripts/remove_multimappers.py {params.opts} - | \
@@ -203,11 +209,11 @@ def _filter_overlap(i):
 
   rule:
     name: "dyn_filter_overlap"
-    input: **input_,
-    output: **output_,
+    input: **input_
+    output: **output_
     log: f"logs/preprocessed/{i}_overlap/{{filename}}.log"
     params:
-      opts=opts_helper(conf, pep.config),
+      opts=opts_helper(conf, pep.config)
     shell: """
       python {workflow.basedir}/scripts/read_overlap.py {params.opts} --fasta {input.fasta} --stats {output.stats:q} {input.bam} > {output.bam:q} 2> {log:q}
     """

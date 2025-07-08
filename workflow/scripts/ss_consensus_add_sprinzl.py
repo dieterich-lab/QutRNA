@@ -5,12 +5,16 @@ import pandas as pd
 from Bio import AlignIO
 
 
+global SPRINZL
+
+
 @click.command()
-@click.option("--output", type=click.Path(exists=False))
+@click.option("--output", type=click.Path())
 @click.option("--sprinzl", type=click.Path(exists=True))
 @click.argument("stk", type=click.Path(exists=True))
 def annotate(sprinzl, stk, output):
     # load ss consensus annotation
+    global SPRINZL
     SPRINZL = pd.read_csv(sprinzl, header=None)[0].to_list()
 
     # load alignments

@@ -1,3 +1,11 @@
+import shutil
+import subprocess
+import yaml
+
+
+global VERSION
+
+
 rule create_info_config:
   output:
     "info/config.yaml"
@@ -41,9 +49,9 @@ rule create_info_version:
     if shutil.which("git") and getattr(workflow, "_main_snakefile"):
       snakedir = os.path.dirname(workflow._main_snakefile)
       result = subprocess.run(["git", "status"], stdout=subprocess.PIPE, cwd=snakedir)
-      qutrna_version += "\n" + result.stdout.decode("utf-8")
+      qutrna_version += "\n" + result.stdout.decode()
       result = subprocess.run(["git", "log", "-1"], stdout=subprocess.PIPE, cwd=snakedir)
-      qutrna_version += "\n" + result.stdout.decode("utf-8")
+      qutrna_version += "\n" + result.stdout.decode()
 
     with open(output[0], "w") as out:
       out.write(qutrna_version)

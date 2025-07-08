@@ -1,19 +1,24 @@
-import shutil
-import subprocess
-import yaml
+# TODO remove
+#import shutil
+#import subprocess
+#import yaml
+#
+#import numpy as np
+#import pandas as pd
 
-import numpy as np
-import pandas as pd
 from snakemake.utils import validate
 
 
-VERSION = "2.0.0-DEV-4"
+VERSION = "2.0.0-DEV-5"
 
 
 # validate schemas
 validate(config, "schemas/config.yaml")
 pepfile: config["pepfile"]
 pepschema: "schemas/pep.yaml"
+
+
+# TODO  --set-resources parasail_gpu_assisted:slurm_extra="'-p gpu' '--gres=gpu:pascal:1'"
 
 
 # manage snakemake includes
@@ -25,6 +30,11 @@ include: "rules/jacusa2.smk"
 include: "rules/sec_structure.smk"
 include: "rules/plot.smk"
 include: "rules/info.smk"
+
+
+global FILTERS_APPLIED
+global TBL
+global READS
 
 
 def target_alignment():

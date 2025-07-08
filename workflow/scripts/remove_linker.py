@@ -9,7 +9,7 @@ from Bio import SeqIO
               type=int,)
 @click.option("--output", required=True,
               type=click.Path(),)
-@click.argument("fasta", type=click.Path("r"))
+@click.argument("fasta", type=click.Path())
 def remove_linker(linker5, linker3, output, fasta):
     """Remove linker from reads"""
 

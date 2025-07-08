@@ -12,20 +12,19 @@ def get_overlap(start1, end1, start2, end2):
 
 
 @click.command()
-@click.option("--output", type=click.Path(exists=False))
 @click.option("--fasta", required=True, type=click.Path(exists=True))
 @click.option("--five-adapter", type=int, default=0)
-@click.option("--stats", required=True, type=click.Path(exists=False))
+@click.option("--stats", required=True, type=click.Path())
 @click.option("--three-adapter", type=int, default=0)
 @click.option("--five-adapter-overlap", type=float, default=0.0)
 @click.option("--trna-overlap", type=float, default=0.0)
 @click.option("--three-adapter-overlap", type=float, default=0.0)
 @click.argument("bam", type=click.Path(exists=True))
-def filter(output, fasta,
-           five_adapter, three_adapter,
-           five_adapter_overlap, trna_overlap, three_adapter_overlap,
-           stats,
-           bam):
+def process(fasta,
+            five_adapter, three_adapter,
+            five_adapter_overlap, trna_overlap, three_adapter_overlap,
+            stats,
+            bam):
     trnas = {trna.name: trna for trna in SeqIO.parse(fasta, "fasta")}
 
     in_samfile = pysam.AlignmentFile(bam, "rb")
@@ -77,7 +76,7 @@ def filter(output, fasta,
         stats_file.write("\t".join(line))
         stats_file.write("\n")
 
-        if (not failed):
+        if not failed:
             out_samfile.write(read)
     stats_file.close()
     out_samfile.close()
@@ -85,4 +84,4 @@ def filter(output, fasta,
 
 
 if __name__ == '__main__':
-    filter()
+    process()

@@ -1,6 +1,5 @@
 import argparse
 import pysam
-import re
 
 # parser related
 parser = argparse.ArgumentParser(prog="remove_multimappers.py",)
@@ -33,7 +32,7 @@ multimapper_reads = []
 for read in in_samfile.fetch(until_eof=True):
     input_read_counter += 1
 
-    if not multimapper_reads or multimapper_reads[0].qname == read.qname:
+    if not multimapper_reads or multimapper_reads[0].qname == read.query_name:
         multimapper_reads.append(read)
     elif len(multimapper_reads) == 1:
         write_reads(multimapper_reads)

@@ -1,75 +1,93 @@
+global FILTERS_APPLIED
+global REF_FASTA
+global READS
+global TBL
+
+
 rule samtools_index:
-  input: "{prefix}.sorted.bam",
-  output: "{prefix}.sorted.bam.bai",
-  conda: "qutrna",
+  input: "{prefix}.sorted.bam"
+  output: "{prefix}.sorted.bam.bai"
+  conda: "qutrna"
   resources:
     mem_mb=2000
-  log: "logs/samtools/index/{prefix}.log",
+  log: "logs/samtools/index/{prefix}.log"
   shell: """
-    samtools index {input:q} 2> {log:q}
+    samtools index {input:q} 2> "{log}"
+  """
+
+
+rule samtools_fa_index:
+  input: "{prefix}.fa"
+  output: "{prefix}.fa.fai"
+  conda: "qutrna"
+  resources:
+    mem_mb=2000
+  log: "logs/samtools_fa_index/{prefix}.log"
+  shell: """
+    samtools faindex {input:q} 2> "{log}"
   """
 
 
 rule samtools_stats:
-  input: "{prefix}.bam",
-  output: "{prefix}.stats",
-  conda: "qutrna",
+  input: "{prefix}.bam"
+  output: "{prefix}.stats"
+  conda: "qutrna"
   resources:
     mem_mb=2000
-  log: "logs/samtools/stats/{prefix}.log",
+  log: "logs/samtools/stats/{prefix}.log"
   shell: """
-    samtools stats {input:q} > {output:q} 2> {log:q}
+    samtools stats {input:q} > {output:q} 2> "{log}"
   """
 
 
 rule samtools_coverage:
-  input: "{prefix}.bam",
-  output: "{prefix}_coverage.tsv",
-  conda: "qutrna",
+  input: "{prefix}.bam"
+  output: "{prefix}_coverage.tsv"
+  conda: "qutrna"
   resources:
     mem_mb=2000
-  log: "logs/samtools/coverage/{prefix}.log",
+  log: "logs/samtools/coverage/{prefix}.log"
   shell: """
-    samtools coverage {input:q} > {output:q} 2> {log:q}
+    samtools coverage {input:q} > {output:q} 2> "{log}"
   """
 
 
 rule samtools_read_count:
-  input: "{prefix}.bam",
-  output: "{prefix}_read_count.txt",
-  conda: "qutrna",
+  input: "{prefix}.bam"
+  output: "{prefix}_read_count.txt"
+  conda: "qutrna"
   resources:
     mem_mb=2000
-  log: "logs/samtools/read_count/{prefix}.log",
+  log: "logs/samtools/read_count/{prefix}.log"
   shell: """
-    samtools view -c {input:q} > {output:q} 2> {log:q}
+    samtools view -c {input:q} > {output:q} 2> "{log}"
   """
 
 
 rule samtools_multimappers:
-  input: "{prefix}.bam",
-  output: "{prefix}_multimappers.tsv",
-  conda: "qutrna",
+  input: "{prefix}.bam"
+  output: "{prefix}_multimappers.tsv"
+  conda: "qutrna"
   resources:
     mem_mb=2000
-  log: "logs/samtools/multimappers/{prefix}.log",
+  log: "logs/samtools/multimappers/{prefix}.log"
   shell: """
     ( samtools view {input:q} | \
       cut -f1,3 | \
       sort -k1,1 | \
-      python  {workflow.basedir}/count_multimapper.py ) > {output:q} 2> {log:q}
+      python  {workflow.basedir}/count_multimapper.py ) > {output:q} 2> "{log}"
   """
 
 
 rule samtools_get_as:
-  input: "{prefix}.bam",
-  output: "{prefix}_as.tsv",
-  conda: "qutrna",
+  input: "{prefix}.bam"
+  output: "{prefix}_as.tsv"
+  conda: "qutrna"
   resources:
     mem_mb=2000
-  log: "logs/samtools/get_as/{prefix}.log",
+  log: "logs/samtools/get_as/{prefix}.log"
   shell: """
-    ( python {workflow.basedir}/get_as.py ) {input:q} | sort | uniq -c ) > {output:q} 2> {log:q}
+    ( python {workflow.basedir}/get_as.py ) {input:q} | sort | uniq -c ) > {output:q} 2> "{log}"
   """
 
 
@@ -77,27 +95,27 @@ rule samtools_get_as:
 rule samtools_get_score:
   input: "results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam"
   output: "results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_score.txt"
-  conda: "qutrna",
+  conda: "qutrna"
   resources:
     mem_mb=2000
-  log: "logs/samtools/get_score/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.log",
+  log: "logs/samtools/get_score/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.log"
   shell: """
-    (samtools view {input:q} | cut -f 5 > {output:q}) 2> {log:q}
+    (samtools view {input:q} | cut -f 5 > {output:q}) 2> "{log}"
   """
 
 
 # FIXME
 rule samtools_filter_by_cutoff:
   input: bam="results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~fwd/{BC}.sorted.bam",
-         cutoff="results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_cutoff.txt",
-  output: "results/bams/final/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam",
-  conda: "qutrna",
+         cutoff="results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_cutoff.txt"
+  output: "results/bams/final/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam"
+  conda: "qutrna"
   resources:
     mem_mb=2000
-  log: "logs/samtools/filter_by_cutoff/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.log",
+  log: "logs/samtools/filter_by_cutoff/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.log"
   shell: """
     samtools view -b -q `cat {input.cutoff:q}` \
-      -o {output:q} {input.bam:q} 2> {log:q}
+      -o {output:q} {input.bam:q} 2> "{log}"
   """
 
 
@@ -120,42 +138,14 @@ def _samtools_merge_input(wildcards):
 
 
 rule samtools_merge:
-  input: _samtools_merge_input,
-  output: "results/bams/{bam_type}/{SAMPLE}.sorted.bam",
-  conda: "qutrna",
+  input: _samtools_merge_input
+  output: "results/bams/{bam_type}/{SAMPLE}.sorted.bam"
+  conda: "qutrna"
   resources:
     mem_mb=10000
-  log: "logs/samtools/merge/{SAMPLE}/{bam_type}.log",
+  log: "logs/samtools/merge/{SAMPLE}/{bam_type}.log"
   shell: """
-    samtools merge {output:q} {input:q} 2> {log:q}
+    samtools merge {output:q} {input:q} 2> "{log}"
   """
 
 
-# TODO
-if config["parasail"]["lines"] > 0:
-  def _samtools_merge_reads_input(wildcards):
-    split_reads = checkpoints.parasail_split_reads.get(**wildcards).output[0]
-    fnames, = glob_wildcards(
-        os.path.join(
-          split_reads,
-          "part_{fname}.fastq.gz"))
-
-    output_dir = "results/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split"
-    return expand(os.path.join(output_dir, "part_{fname}_raw.bam"),
-                  fname=fnames,
-                  allow_missing=True)
-
-
-  rule samtools_merge_split_reads:
-    input: bams=_samtools_merge_reads_input,
-           fasta=REF_FASTA,
-    output: bam="results/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_raw.bam",
-            bai="results/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_raw.bam.bai",
-    conda: "qutrna",
-    resources:
-      mem_mb=10000
-    log: "logs/samtools/merge_split_reads/bams/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam",
-    shell: """
-      ( samtools merge - {input.bams} | \
-          samtools sort -o {output.bam:q} /dev/stdin && samtools index {output.bam:q} ) 2> {log:q}
-    """

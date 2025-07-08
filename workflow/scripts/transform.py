@@ -1,16 +1,11 @@
 import click
 import pandas as pd
-import re
-import yaml
-from itertools import repeat
-
-import os
 
 
 @click.command()
 @click.option("--sprinzl", required=True, help="Sequence to Sprinzl.")
 @click.option("--output", required=True, help="Output FNAME")
-@click.option("--linker5", default=0, help=("Length of 5' linker sequence"))
+@click.option("--linker5", default=0, help="Length of 5' linker sequence")
 @click.argument("jacusa2", type=click.Path(exists=True))
 def transform(sprinzl, output, linker5, jacusa2):
     """Add Sprinzl coordinates to JACUS2A output"""

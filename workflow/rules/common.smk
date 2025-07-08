@@ -1,3 +1,11 @@
+import re
+import pandas as pd
+from snakemake import shell
+
+
+global FILTERS_APPLIED
+
+
 REF_FASTA = "data/ref.fasta"
 REF_NO_LINKER_FASTA = "results/data/no_linker.fasta"
 REF_FILTERED_TRNAS_FASTA = "results/data/filtered_trnas.fasta"
@@ -43,31 +51,30 @@ if __nested_cols:
 SAMPLES = TBL["sample_name"].unique().tolist()
 SUBSAMPLES = TBL["subsample_name"].tolist()
 
+# FIXME - does not work as expected
 wildcard_constraints:
   SAMPLE="|".join(SAMPLES),
   SUBSAMPLE="|".join(SUBSAMPLES),
   ORIENT="|".join(["fwd", "rev"]),
-  BC="|".join(["pass", "fail", "merged", "unknown"]),
+  BC="|".join(["pass", "fail", "merged", "unknown"])
 
 
 def fname2sample(fname):
   r = re.search("/sample~([^~/]+)", fname)
-  if r:
-    return r.group(1)
+  return r.group(1)
 
 
 def fname2subsample(fname):
   r = re.search("/subsample~([^~/]+)", fname)
-  if r:
-    return r.group(1)
+  return r.group(1)
 
 
-def create_include(name, input, output, params):
+def create_include(name_, input_, output_, params_):
   rule:
-    name: f"dyn_include_{name}"
-    input: input
-    output: output
-    params: include=params
+    name: f"dyn_include_{name_}"
+    input: input_
+    output: output_
+    params: include=params_
     run:
         if params.include == "copy":
           cmd = "cp"
@@ -140,25 +147,25 @@ if READS != "bams":
 
 
 rule remove_linker:
-  input: REF_FASTA,
-  output: REF_NO_LINKER_FASTA,
-  conda: "qutrna",
+  input: REF_FASTA
+  output: REF_NO_LINKER_FASTA
+  conda: "qutrna"
   resources:
     mem_mb=2000
-  log: "logs/remove_linker.log",
+  log: "logs/remove_linker.log"
   params: linker5=pep.config["qutrna"]["linker5"],
-          linker3=pep.config["qutrna"]["linker3"],
+          linker3=pep.config["qutrna"]["linker3"]
   shell: """
     python {workflow.basedir}/scripts/remove_linker.py \
         --linker5 {params.linker5} \
         --linker3 {params.linker3} \
         --output {output:q} \
         {input:q} \
-        2> {log:q}
+        2> "{log}"
   """
 
 
-def _remove_trans_opts(wildcards):
+def _remove_trans_opts(_):
   trnas = pep.config["qutrna"].get("remove_trnas", [])
 
   opts = []
@@ -169,19 +176,19 @@ def _remove_trans_opts(wildcards):
 
 
 rule remove_trnas:
-  input: REF_NO_LINKER_FASTA,
-  output: REF_FILTERED_TRNAS_FASTA,
-  conda: "qutrna",
+  input: REF_NO_LINKER_FASTA
+  output: REF_FILTERED_TRNAS_FASTA
+  conda: "qutrna"
   resources:
     mem_mb=2000
-  log: "logs/remove_trnas.log",
-  params: opts=_remove_trans_opts,
+  log: "logs/remove_trnas.log"
+  params: opts=_remove_trans_opts
   shell: """
     python {workflow.basedir}/scripts/remove_trnas.py \
         {params.opts} \
         --output {output:q} \
         {input:q} \
-        2> {log:q}
+        2> "{log}"
   """
 
 
@@ -204,7 +211,7 @@ def _collect_input(suffix):
 
 
 rule collect_read_counts:
-  input: unpack(_collect_input("sorted_read_count.txt")),
+  input: unpack(_collect_input("sorted_read_count.txt"))
   output: "results/read_counts.tsv"
   run:
     dfs = []
@@ -250,9 +257,9 @@ rule collect_as:
 
 
 rule cut_samtools_stats:
-  input: "{prefix}.stats",
-  output: temp("{prefix}_stats_{type}.tsv"),
-  conda: "qutrna",
+  input: "{prefix}.stats"
+  output: temp("{prefix}_stats_{type}.tsv")
+  conda: "qutrna"
   resources:
     mem_mb=2000
   shell: """
@@ -262,7 +269,7 @@ rule cut_samtools_stats:
 
 rule collect_samtools_stats:
   input: unpack(_collect_input("sorted_stats_{wildcards.type}.tsv"))
-  output: "results/samtools/stats/{type}.tsv",
+  output: "results/samtools/stats/{type}.tsv"
   run:
     type2cols = {
         "RL": ["read_length", "count"],}
