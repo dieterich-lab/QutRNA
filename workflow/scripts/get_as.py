@@ -1,14 +1,23 @@
-import argparse
+import click
 import pysam
+from collections import Counter
 
-# parser related
-parser = argparse.ArgumentParser(prog="get_as.py",)
-parser.add_argument("bam", type=str)
-args = parser.parse_args()
 
-# input <-> output
-in_samfile = pysam.AlignmentFile(args.bam, 'rb')
+@click.command()
+@click.argument("BAM", type=click.Path())
+def process(bam):
+    counts = Counter()
+    in_samfile = pysam.AlignmentFile(bam, "rb")
 
-for read in in_samfile.fetch(until_eof=True):
-    alignment_score = read.get_tag("AS")
-    print(f"{alignment_score}\n")
+    for read in in_samfile:
+
+        alignment_score = read.get_tag("AS")
+        counts[alignment_score] += 1
+
+    print("\t".join(["alignment_score", "count"]))
+    for alignment_score, count in counts.items():
+        print("\t".join([str(alignment_score), str(count)]))
+
+
+if __name__ == "__main__":
+    process()

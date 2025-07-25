@@ -1,44 +1,44 @@
 import pandas as pd
 
-
-global CM
+global SPRINZL_MODE
 global SEQ_TO_SPRINZL
 global REF_FILTERED_TRNAS_FASTA
 global SPRINZL
 
 
 rule ss_transform:
-  input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores_seq.tsv",
+  input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_seq.tsv",
          sprinzl=SEQ_TO_SPRINZL
-  output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/scores_sprinzl.tsv"
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
-  log: "logs/ss/transform/cond1~{COND1}/cond2~{COND2}.log"
-  params: linker5=pep.config["qutrna"]["linker5"]
+  output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_sprinzl.tsv"
+  conda: "qutrna2"
+  log: "logs/ss/transform/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.log"
+  params: linker5=pep.config["qutrna2"]["linker5"]
   shell: """
     python {workflow.basedir:q}/scripts/transform.py \
         --sprinzl {input.sprinzl:q} \
         --output {output:q} \
         --linker5 {params.linker5} \
-        {input.jacusa2:q} 2> "{log}"
+        {input.jacusa2:q} 2> {log:q}
   """
 
 
-if "cm" in pep.config["qutrna"]:
+if SPRINZL_MODE == "cm":
+  global CM
+
   rule cmalign_run:
     input: cm=CM,
            fasta=REF_FILTERED_TRNAS_FASTA
     output: "results/cmalign/align.stk"
     log: "logs/cmalign/run.log"
-    threads: config["cmalign"]["threads"]
+    threads: 1
     params: opts=config["cmalign"]["opts"]
-    conda: "qutrna"
-    resources:
-      mem_mb=20000
+    conda: "qutrna2"
     shell: """
-      cmalign {params.opts} --cpu {threads} -o {output:q} \
-        {input.cm:q} {input.fasta:q} \
+      cmalign {params.opts} \
+        --cpu {threads} \
+        -o {output:q} \
+        {input.cm:q} \
+        {input.fasta:q} \
         2> {log}
    """
 
@@ -47,16 +47,14 @@ if "cm" in pep.config["qutrna"]:
     input: stk="results/cmalign/align.stk",
            sprinzl=SPRINZL
     output: "results/ss_consensus_to_sprinzl.tsv"
-    conda: "qutrna"
-    resources:
-       mem_mb=2000
+    conda: "qutrna2"
     log: "logs/ss/ss_consensus_add_sprinzl.log"
     shell: """
-       python {workflow.basedir}/scripts/ss_consensus_add_sprinzl.py \
-           --output {output:q} \
-           --sprinzl {input.sprinzl:q} \
-           {input.stk:q} \
-           2> "{log}"
+      python {workflow.basedir}/scripts/ss_consensus_add_sprinzl.py \
+        --output {output:q} \
+        --sprinzl {input.sprinzl:q} \
+        {input.stk:q} \
+        2> {log:q}
     """
 
 
@@ -64,14 +62,14 @@ if "cm" in pep.config["qutrna"]:
     input: align="results/cmalign/align.stk",
            ss_to_sprinzl="results/ss_consensus_to_sprinzl.tsv"
     output: "results/seq_to_sprinzl.tsv"
-    conda: "qutrna"
-    resources:
-      mem_mb=2000
+    conda: "qutrna2"
     log: "logs/ss/seq_to_sprinzl.log"
     shell: """
       python {workflow.basedir}/scripts/seq_to_sprinzl.py \
-          --output {output:q} {input.ss_to_sprinzl:q} {input.align:q} \
-          2> "{log}"
+        --output {output:q} \
+        {input.ss_to_sprinzl:q} \
+        {input.align:q} \
+        2> {log:q}
     """
 
 

@@ -1,23 +1,5 @@
-import argparse
+import click
 import pysam
-
-# parser related
-parser = argparse.ArgumentParser(prog="process_read.py",)
-parser.add_argument("bam", type=str)
-parser.add_argument("--trim-cigar", action="store_true")
-parser.add_argument("--min-read-length", type=int)
-parser.add_argument("--max-read-length", type=int)
-parser.add_argument("--min-alignment-length", type=int)
-parser.add_argument("--max-alignment-length", type=int)
-parser.add_argument("--stats", type=str)
-args = parser.parse_args()
-
-# counter
-input_read_counter = 0
-trim_cigar_counter = 0
-read_length_counter = 0
-aln_length_counter = 0
-output_read_counter = 0
 
 
 def _trim_cigar(cigar, read):
@@ -46,8 +28,7 @@ def _trim_cigar(cigar, read):
     return cigar, aln_offset
 
 
-def trim_cigar(read, _):
-    global trim_cigar_counter
+def trim(read, _):
 
     new_cigar, aln_offset = _trim_cigar(list(read.cigartuples), read)
     new_cigar, _ = _trim_cigar(list(reversed(new_cigar)), read)
@@ -65,53 +46,74 @@ def trim_cigar(read, _):
     merged_cigar.append(current)
     new_cigar = tuple((c[0], c[1]) for c in merged_cigar)
     if new_cigar != read.cigartuples:
-        trim_cigar_counter += 1
         read.cigartuples = new_cigar
         if aln_offset:
             read.reference_start += aln_offset
 
-    return read
+        return True
+
+    return False
 
 
-# input <-> output
-in_samfile = pysam.AlignmentFile(args.bam, 'rb')
-out_samfile = pysam.AlignmentFile("-", "wb", template=in_samfile)
+# parser related
+@click.command()
+@click.option("--trim-cigar", is_flag=True)
+@click.option("--min-read-length", type=int)
+@click.option("--max-read-length", type=int)
+@click.option("--min-alignment-length", type=int)
+@click.option("--max-alignment-length", type=int)
+@click.option("--stats", type=str)
+@click.argument("bam", type=str)
+def process(trim_cigar, min_read_length, max_read_length, min_alignment_length, max_alignment_length, stats, bam):
+  # input <-> output
+  in_samfile = pysam.AlignmentFile(bam, "rb")
+  out_samfile = pysam.AlignmentFile("-", "wb", template=in_samfile)
 
-
-for read in in_samfile.fetch(until_eof=True):
+  # counter
+  input_read_counter = 0
+  trim_cigar_counter = 0
+  read_length_counter = 0
+  aln_length_counter = 0
+  output_read_counter = 0
+  for read in in_samfile:
     input_read_counter += 1
-    if args.min_read_length or args.max_read_length:
-        read_len = len(read.query_sequence)
-        if args.min_read_length and args.min_read_length > read_len :
-            read_length_counter += 1
-            continue
-        if args.max_read_length and args.max_read_length < read_len:
-            read_length_counter += 1
-            continue
-    if args.min_alignment_length or args.max_alignment_length:
-        aln_len = read.query_alignment_length
-        if args.min_alignment_length and args.min_alignment_length > aln_len :
-            aln_length_counter += 1
-            continue
-        if args.max_alignment_length and args.max_alignment_length < aln_len:
-            aln_length_counter += 1
-            continue
+    if min_read_length or max_read_length:
+      read_len = len(read.query_sequence)
+      if min_read_length and min_read_length > read_len :
+        read_length_counter += 1
+        continue
+      if max_read_length and max_read_length < read_len:
+        read_length_counter += 1
+        continue
+    if min_alignment_length or max_alignment_length:
+      aln_len = read.query_alignment_length
+      if min_alignment_length and min_alignment_length > aln_len :
+        aln_length_counter += 1
+        continue
+      if max_alignment_length and max_alignment_length < aln_len:
+        aln_length_counter += 1
+        continue
 
-    if args.trim_cigar:
-        new_read = trim_cigar(read, out_samfile)
-        out_samfile.write(new_read)
-        output_read_counter += 1
+    if trim_cigar:
+      if trim(read, out_samfile):
+        trim_cigar_counter += 1
+      out_samfile.write(read)
+      output_read_counter += 1
     else:
-        out_samfile.write(read)
-        output_read_counter += 1
-out_samfile.close()
-in_samfile.close()
+      out_samfile.write(read)
+      output_read_counter += 1
+  out_samfile.close()
+  in_samfile.close()
 
-# print out statistics
-if args.stats:
-    with open(args.stats, "w") as f:
-        f.write(f"input_reads\t{input_read_counter}\n")
-        f.write(f"trimmed_cigars\t{trim_cigar_counter}\n")
-        f.write(f"read_length_filtered\t{read_length_counter}\n")
-        f.write(f"alignment_length_filtered\t{aln_length_counter}\n")
-        f.write(f"output_reads\t{output_read_counter}\n")
+  # print out statistics
+  if stats:
+    with open(stats, "w") as f:
+      f.write(f"input_reads\t{input_read_counter}\n")
+      f.write(f"trimmed_cigars\t{trim_cigar_counter}\n")
+      f.write(f"read_length_filtered\t{read_length_counter}\n")
+      f.write(f"alignment_length_filtered\t{aln_length_counter}\n")
+      f.write(f"output_reads\t{output_read_counter}\n")
+
+
+if __name__ == '__main__':
+    process()

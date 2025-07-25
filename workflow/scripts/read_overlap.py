@@ -1,4 +1,5 @@
 import click
+import gzip
 import pysam
 import sys
 
@@ -31,17 +32,17 @@ def process(fasta,
     out_samfile = pysam.AlignmentFile(sys.stdout, "wb", template=in_samfile)
 
     line = ["read_id", "ref", "aln_start", "aln_end", "aln_score", "cigar", "ov_5", "ov_trna", "ov_3"]
-    stats_file = open(stats, "w")
+    stats_file = gzip.open(stats, "wb")
     if five_adapter > 0 and five_adapter_overlap > 0:
         line.append("five_adapter_ov")
     if three_adapter > 0 and three_adapter_overlap > 0:
         line.append("three_adapter_ov")
     if trna_overlap > 0:
         line.append("trna_ov")
-    stats_file.write("\t".join(line))
-    stats_file.write("\n")
+    stats_file.write("\t".join(line).encode())
+    stats_file.write("\n".encode())
 
-    for read in in_samfile.fetch():
+    for read in in_samfile:
         aln_start = read.query_alignment_start
         aln_end = read.query_alignment_end - 1
 
@@ -73,8 +74,8 @@ def process(fasta,
                 failed = True
         line.append(str(ov / three_adapter))
 
-        stats_file.write("\t".join(line))
-        stats_file.write("\n")
+        stats_file.write("\t".join(line).encode())
+        stats_file.write("\n".encode())
 
         if not failed:
             out_samfile.write(read)

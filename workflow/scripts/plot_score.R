@@ -130,7 +130,7 @@ process_seq_coords <- function(df) {
   return(df)
 }
 
-flag_positions <- function(df, flas_positions) {
+flag_positions <- function(df, flag_positions) {
   i <- df$trna_coords %in% flag_positions
   if (any(i)) {
     df[i, "score"] <- NA
@@ -241,7 +241,7 @@ add_mod_abbrevs <- function(df, mod_abbrevs_fname) {
   df <- left_join(df, mod_abbrevs,
                   by = join_by(mod == mod_abbrev))
   
-  return(mod_abbrevs)
+  return(df)
 }
 
 add_mod_label <- function(df) {
@@ -274,7 +274,7 @@ remove_missing_positions <- function(df) {
 }
 
 
-add_missing_values <- function(df, opts, cols = c("trna_label", "position")) {
+add_missing_values <- function(df, cols = c("trna_label", "position")) {
   fill <- list("exceed_max_score" = FALSE,
                "mark_position" = FALSE,
                "flag_position" = FALSE)
@@ -572,7 +572,6 @@ plot_combined <- function(df, coverage_summary, plot_args) {
   
   if ("mod_label" %in% colnames(df) && any(df$mod_label != "")) {
     ncol <- ncol + 1
-    widths <- c(widths, .1)
     p <- p | plot_mod_table(df)
   }
   widths <- unit(c(-1, 100), c("null", "pt"))
@@ -586,7 +585,7 @@ deduce_height <- function(df) {
     unique() |>
     length()
   
-  heigth <- height / 2
+  height <- height / 2
   
   return(height)
 }
@@ -999,7 +998,7 @@ if (opts$options$position_column == "sprinzl") {
 
 # keep specific positions
 if (!is.null(opts$options$positions)) {
-  positions = strsplit(opts$options$position, ",") |>
+  positions <- strsplit(opts$options$position, ",") |>
     unlist()
   i <- df[[opts$options$position_column]] %in% positions
   if (any(i)) {
@@ -1080,7 +1079,7 @@ if (!is.null(opts$options$modmap)) {
 }
 
 # add missing values
-df <- add_missing_values(df, opts)
+df <- add_missing_values(df)
 
 # QUICK FIX
 #df <- add_trna_details(df, col = "trna")

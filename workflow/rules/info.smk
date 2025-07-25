@@ -46,11 +46,10 @@ rule create_info_version:
     "info/version.txt"
   run:
     qutrna_version = "QutRNA2: " + VERSION
-    if shutil.which("git") and getattr(workflow, "_main_snakefile"):
-      snakedir = os.path.dirname(workflow._main_snakefile)
-      result = subprocess.run(["git", "status"], stdout=subprocess.PIPE, cwd=snakedir)
+    if shutil.which("git"):
+      result = subprocess.run(["git", "status"], stdout=subprocess.PIPE, cwd=workflow.basedir)
       qutrna_version += "\n" + result.stdout.decode()
-      result = subprocess.run(["git", "log", "-1"], stdout=subprocess.PIPE, cwd=snakedir)
+      result = subprocess.run(["git", "log", "-1"], stdout=subprocess.PIPE, cwd=workflow.basedir)
       qutrna_version += "\n" + result.stdout.decode()
 
     with open(output[0], "w") as out:

@@ -1,239 +1,191 @@
-# FIXME return value vs. rule
-from snakemake import shell
-from snakemake.io import temp
+from snakemake.io import temp, unpack
 
-
+global READS
 global REF_FASTA
 
-
-def _filter_input_helper(i):
-   bam = FILTER2OUTPUT[i - 1]
-   d = {"bam": bam,
-        "bai": bam + ".bai",}
-
-   return d
-
-
-def _filter_samtools(i):
-  config_filter = config["preprocess"]["samtools"]["filter"]
-  config_calmd = config["preprocess"]["samtools"]["calmd"]
-  if not config_filter and not config_calmd:
-    return
-
-  input_ = _filter_input_helper(i)
-  if config_calmd:
-     input_["ref"] = REF_FASTA
-
-  output_ = "results/bams/preprocessed/samtools/{filename}.bam"
-  FILTER2OUTPUT.append(output_)
-  FILTERS_APPLIED.append("samtools")
-
-  rule:
-    name: "dny_filter_samtools"
-    input: **input_
-    output: temp(output_)
-    log: f"logs/preprocessed/{i}_samtools/{{filename}}.log"
-    params:
-      filter=config_filter,
-      calmd=config_calmd
-    run:
-      cmds = ["samtools view {params.filter} -b {input.bam}", ]
-      if params.calmd:
-        cmds.append("samtools calmd -b /dev/stdin {input.ref}")
-      cmd = " | ".join(cmds)
-      cmd = "( " + cmd + " > {output[0]} ) 2> {log}"
-
-      shell(cmd)
-
-
-def _filter_trim_cigar(i):
-  config_trim_cigar = config["preprocess"]["trim_cigar"]
-  if not config_trim_cigar:
-    return
-
-  input_ = _filter_input_helper(i)
-  bam = "results/bams/preprocessed/trim_cigar/{filename}.bam"
-  output_ = {"bam": temp(bam),
-             "stats": "results/bams/preprocessed/trim_cigar/{filename}_stats.tsv", }
-  FILTER2OUTPUT.append(bam)
-  FILTERS_APPLIED.append("trim_cigar")
-
-  rule:
-    name: "dyn_filter_trim_cigar"
-    input: **input_
-    output: **output_
-    log: f"logs/preprocessed/{i}_trim_cigar/{{filename}}.log"
-    params:
-      trim_cigar=config_trim_cigar
-    run:
-      cmds = [
-        "python " + os.path.join(workflow.basedir, "scripts", "process_read.py") + " --stats {output.stats} --trim-cigar {input.bam} ",
-        "samtools sort"]
-
-      cmd = " | ".join(cmds)
-      cmd = "( " + cmd + " > {output.bam} ) 2> {log}"
-      shell(cmd)
-
-
-def _filter_read_length(i):
-  config_min = config["preprocess"]["read_length"]["min"]
-  config_max = config["preprocess"]["read_length"]["max"]
-  if not config_min and not config_max:
-    return
-
-  input_ =_filter_input_helper(i)
-  bam = "results/bams/preprocessed/read_length/{filename}.bam"
-  output_ = {"bam": temp(bam),
-             "stats": "results/bams/preprocessed/read_length/{filename}_stats.tsv", }
-  FILTER2OUTPUT.append(bam)
-  FILTERS_APPLIED.append("read_length")
-
-  rule:
-    name: "dyn_filter_read_length"
-    input: **input_
-    output: **output_
-    log: f"logs/preprocessed/{i}_read_length/{{filename}}.log"
-    params:
-      min=config["preprocess"]["read_length"]["min"],
-      max=config["preprocess"]["read_length"]["max"]
-    run:
-      process_read_opts = []
-      if params.min:
-        process_read_opts.append(f"--min-read-length {params.min}")
-      if params.max:
-        process_read_opts.append(f"--max-read-length {params.max}")
-      cmd = "python " + os.path.join(workflow.basedir, "scripts", "process_read.py") + " " + " ".join(process_read_opts) + " --stats {output.stats} {input.bam} > {output.bam} 2> {log}"
-      shell(cmd)
-
-
-def _filter_alignment_length(i):
-  config_min = config["preprocess"]["alignment_length"]["min"]
-  config_max = config["preprocess"]["alignment_length"]["max"]
-  if not config_min and not config_max:
-    return
-
-  input_ =_filter_input_helper(i)
-  bam = "results/bams/preprocessed/alignment_length/{filename}.bam"
-  output_ = {"bam": temp(bam),
-             "stats": "results/bams/preprocessed/alignment_length/{filename}_stats.tsv", }
-  FILTER2OUTPUT.append(bam)
-  FILTERS_APPLIED.append("alignment_length")
-
-  rule:
-    name: "dyn_filter_alignment_length"
-    input: **input_
-    output: **output_
-    log: f"logs/preprocessed/{i}_alignment_length/{{filename}}.log"
-    params:
-      min=config["preprocess"]["alignment_length"]["min"],
-      max=config["preprocess"]["alignment_length"]["max"]
-    run:
-      process_read_opts = []
-      if params.min:
-        process_read_opts.append(f"--min-alignment-length {params.min}")
-      if params.max:
-        process_read_opts.append(f"--max-alignment-length {params.max}")
-      cmd = "python " + os.path.join(workflow.basedir, "scripts", "process_read.py") + " " + " ".join(process_read_opts) + " --stats {output.stats} {input.bam} > {output.bam} 2> {log}"
-      shell(cmd)
-
-
-def _filter_remove_multimappers(i):
-  conf = config["preprocess"]["remove_multimappers"]
-  if not conf:
-    return
-
-  input_ = _filter_input_helper(i)
-  bam = "results/bams/preprocessed/remove_multimappers/{filename}.bam"
-  output_ = {"bam": temp(bam), }
-  FILTER2OUTPUT.append(bam)
-  FILTERS_APPLIED.append("remove_multimappers")
-
-  def opts_helper(conf):
-    opts = ""
-    if conf.get("keep_uniform_cigar"):
-      opts = "--keep-uniform-cigar"
-
-    return opts
-
-  rule:
-    name: "dyn_filter_remove_multimappers"
-    input: **input_
-    output: **output_
-    log: f"logs/preprocessed/{i}_multimappers/{{filename}}.log"
-    params:
-      opts=opts_helper(conf)
-    shell: """
-      ( samtools sort -n {input.bam:q} | \
-          python {workflow.basedir}/scripts/remove_multimappers.py {params.opts} - | \
-          samtools sort -o {output.bam:q} ) 2> {log:q}
-    """
-
-
-def _filter_overlap(i):
-  conf = config["preprocess"]["overlap"]
-  if not conf:
-    return
-
-  input_ = _filter_input_helper(i)
-  input_["fasta"] = REF_FASTA
-  bam = "results/bams/preprocessed/overlap/{filename}.bam"
-  output_ = {"bam": temp(bam),
-             "stats": "results/bams/preprocessed/overlap/{filename}_stats.tsv",}
-  FILTER2OUTPUT.append(bam)
-  FILTERS_APPLIED.append("overlap")
-
-  def opts_helper(conf, pep_config):
-    opts = []
-
-    value = pep_config["qutrna"].get("linker5", 0)
-    if value:
-      opts.append(f"--five-adapter {value}")
-
-    value = pep_config["qutrna"].get("linker3", 0)
-    if value:
-      opts.append(f"--three-adapter {value}")
-
-    value = conf.get("five_linker_overlap", 0)
-    if value:
-      opts.append(f"--five-adapter-overlap {value}")
-
-    value = conf.get("trna_overlap", 0)
-    if value:
-      opts.append(f"--trna-overlap {value}")
-
-    value = conf.get("three_linker_overlap", 0)
-    if value:
-      opts.append(f"--three-adapter-overlap {value}")
-
-    return " ".join(opts)
-
-  rule:
-    name: "dyn_filter_overlap"
-    input: **input_
-    output: **output_
-    log: f"logs/preprocessed/{i}_overlap/{{filename}}.log"
-    params:
-      opts=opts_helper(conf, pep.config)
-    shell: """
-      python {workflow.basedir}/scripts/read_overlap.py {params.opts} --fasta {input.fasta} --stats {output.stats:q} {input.bam} > {output.bam:q} 2> {log:q}
-    """
-
-
-# preprocess -> filter function
-_filters = {
-  "samtools": _filter_samtools,
-  "trim_cigar": _filter_trim_cigar,
-  "read_length": _filter_read_length,
-  "remove_multimappers": _filter_remove_multimappers,
-  "overlap": _filter_overlap,
-  "alignment_length": _filter_alignment_length,
-}
-
-
 FILTERS_APPLIED = []
-# apply filters sequentially
-FILTER2OUTPUT = ["data/bams/{filename}.bam", ]
-if "preprocess" in config:
-  for i, filter_name in enumerate(config["preprocess"], start=1):
-    filter_rule = _filters[filter_name]
-    filter_rule(i)
+
+class Filter:
+
+  OUTPUT = []
+
+  def __init__(self, filter_name):
+    self.filter_name = filter_name
+    self.input = {
+      "bam": self.OUTPUT[-1],
+      "bai": self.OUTPUT[-1] + ".bai"
+    }
+    self.output = {
+      "bam": temp(
+        f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}.sorted.bam")
+    }
+    self.cmds = []
+    self.params = {}
+
+  def process(self) -> bool:
+    if not self.filter_name in config["filter"]:
+      return False
+
+    return self._process()
+
+  @property
+  def config(self):
+    return config["filter"][self.filter_name]
+
+  def _process(self) -> bool:
+    raise NotImplementedError
+
+  def shell_formatted(self):
+    cmd = "| ".join(self.cmds)
+    cmd = f"( {cmd} ) 2> {{log:q}}"
+
+    return cmd
+
+  def create_rule(self):
+    if self.process():
+      self.OUTPUT.append(self.output["bam"])
+      FILTERS_APPLIED.append(self.filter_name)
+      rule:
+        name: f"filter_{self.filter_name}"
+        input: unpack(lambda _: self.input)
+        output: **self.output
+        benchmark: f"benchmarks/filter/{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}.txt"
+        conda: "qutrna2"
+        log: f"logs/filter/{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}.log"
+        params: **self.params
+        shell: self.shell_formatted()
+
+
+class FilterRandomAlignment(Filter):
+  def __init__(self):
+    super().__init__("random_alignment")
+
+  def _process(self):
+    self.input["cutoff"] = "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_cutoff.txt"
+    self.cmds.append(
+      f"python {workflow.basedir}/scripts/filter_by_as.py --min-alignment-score `cat {{input.cutoff:q}}` {{input.bam}} > {{output.bam:q}}")
+
+    return True
+
+class FilterSamtools(Filter):
+  def __init__(self):
+    super().__init__("samtools")
+
+  def _process(self):
+    input_ = "{input.bam:q}"
+
+    if self.config["filter"]:
+      self.params["filter"] = self.config["filter"]
+      self.cmds.append(f"samtools view {{params.filter}} -b {input_}")
+      input_ = "/dev/stdin"
+
+    if "calmd" in config and config["calmn"]:
+      self.input["ref"] = REF_FASTA
+      self.cmds.append(f"samtools calmd -b {input_}")
+
+    if self.cmds:
+      self.cmds[-1] = f"{self.cmds[-1]} > {{output.bam:q}}"
+
+    return self.cmds
+
+class FilterTrimCigar(Filter):
+  def __init__(self):
+    super().__init__("trim_cigar")
+
+  def _process(self):
+    if not self.config:
+      return False
+
+    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt"
+    self.cmds.append(
+      f"python {workflow.basedir}/scripts/process_read.py --stats {{output.stats:q}} --trim-cigar {{input.bam:q}} > {{output.bam:q}}")
+
+    return True
+
+class FilterReadLength(Filter):
+  def __init__(self):
+    super().__init__("read_length")
+
+  def _process(self):
+    opts = []
+    for k in ("min", "max"):
+      if k in self.config and self.config[k]:
+        opts.append(f"--{k}-read-length {self.config[k]}")
+    if not opts:
+      return False
+
+    self.params["opts"] = opts
+    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt"
+    self.cmds.append(
+      f"python {workflow.basedir}/scripts/process_read.py {{params.opts:q}} {{input.bam:q}} > {{output.bam}}")
+
+    return True
+
+
+class FilterMultimapper(Filter):
+  def __init__(self):
+    super().__init__("multimapper")
+
+  def _process(self):
+    if not self.config:
+      return False
+
+    self.cmds.append(
+      f"python {workflow.basedir}/scripts/remove_multimapper.py {{input.bam:q}} > {{output.bam:q}}")
+
+    return True
+
+
+class FilterAdapterOverlap(Filter):
+  def __init__(self):
+    super().__init__("adapter_overlap")
+
+  def _process(self):
+    self.input["ref_fasta"] = REF_FASTA
+    opts = []
+    conf = self.config
+    pep_conf = pep.config["qutrna2"]
+    pep_pairs = {
+      "linker5": "--five-adapter",
+      "linker3": "--three-adapter"
+    }
+    for key, opt in pep_pairs.items():
+      if pep_conf.get(key):
+        opts.append(f"{opt} {pep_conf[key]}")
+    conf_pairs = {
+      "five_linker_overlap": "--five-adapter-overlap",
+      "trna_overlap": "--trna-overlap",
+      "three_linker_overlap": "--three-adapter-overlap",
+    }
+    for key, opt in conf_pairs.items():
+      if conf.get(key):
+        opts.append(f"{opt} {conf[key]}")
+    if not opts:
+      return False
+
+    self.params["opts"] = opts
+    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt.gzip"
+    self.cmds.append(
+      f"python {workflow.basedir}/scripts/read_overlap.py --fasta {{input.ref_fasta}} {{params.opts}} --stats {{output.stats:q}} {{input.bam:q}} > {{output.bam:q}}")
+
+    return True
+
+if READS == "bam":
+  Filter.OUTPUT.append("data/bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam")
+elif READS == "fastq":
+  Filter.OUTPUT.append("results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~fwd/{BC}.sorted.bam")
+
+if "filter" in config:
+  _FILTERS = {i.filter_name: i for i in [c() for c in Filter.__subclasses__()]}
+  for _filter_name in config["filter"]:
+    _FILTERS[_filter_name].create_rule()
+
+def _filter_final_input(_):
+  return Filter.OUTPUT[-1]
+
+rule filter_final:
+  input: _filter_final_input
+  output: "results/bam/final/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam"
+  shell: """
+    cp {input} {output}
+  """

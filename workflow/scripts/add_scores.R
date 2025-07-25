@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+options(error=traceback)
 
 # Process JACUSA2 scores and add additional data.
 library(GenomicRanges)
@@ -38,9 +39,9 @@ guess_sample_info <- function(raw_header_names) {
     if (is.null(conditions)) {
       next
     }
-    prefix_regex = paste0("^(", paste0(prefix, collapse = "|"), ")")
-    condition_regex = paste0("([0-9]{", nchar(conditions), "})")
-    replicate_regex = "([0-9]+)"
+    prefix_regex <- paste0("^(", paste0(prefix, collapse = "|"), ")")
+    condition_regex <- paste0("([0-9]{", nchar(conditions), "})")
+    replicate_regex <- "([0-9]+)"
     m <- do.call(
       rbind,
       regmatches(raw_header_names[i],
@@ -54,6 +55,7 @@ guess_sample_info <- function(raw_header_names) {
     df$condition <- as.integer(df$condition)
     df$replicate <- as.integer(df$replicate)
     df$sample <- paste0("bam_", df$condition, "_", df$replicate)
+
 
     return(df)
   }
@@ -94,13 +96,12 @@ read_result <- function(file, tmpdir = tempdir(), showProgress = FALSE, ...) {
   # if url download first
   if (grepl("ftp://|http://", file)) {
     # partly adopted from data.table::fread
-    tmpFile <- tempfile(tmpdir = tmpdir)
     if (!requireNamespace("curl", quietly = TRUE))
       stop("Input URL requires https:// connection for which fread() requires 'curl' package which cannot be found. Please install 'curl' using 'install.packages('curl')'.")
 
-    tmpFile = tempfile(fileext = paste0(".", tools::file_ext(file)), tmpdir = tmpdir)
+    tmpFile <- tempfile(fileext = paste0(".", tools::file_ext(file)), tmpdir = tmpdir)
     curl::curl_download(file, tmpFile, mode = "wb", quiet = !showProgress)
-    file = tmpFile
+    file <- tmpFile
     on.exit(unlink(file), add = TRUE)
   }
 
@@ -112,7 +113,7 @@ read_result <- function(file, tmpdir = tempdir(), showProgress = FALSE, ...) {
   header_names <- NULL
   jacusa_header <- c()
   while (TRUE) {
-    line = readLines(con, n = 1)
+    line <- readLines(con, n = 1)
     # quit reading: nothing to read or first no header line
     if (length(line) == 0 || length(grep("^#", line)) == 0) {
       break
@@ -123,7 +124,7 @@ read_result <- function(file, tmpdir = tempdir(), showProgress = FALSE, ...) {
     if (length(grep("^#contig", line)) > 0) {
       # parse and store header
       # fix header: #contig -> contig
-      header_names <- sub("^#", "", line);
+      header_names <- sub("^#", "", line)
       header_names <- unlist(base::strsplit(header_names, split = "\t", fixed = TRUE))
     } else if (length(grep("^##", line)) > 0) {
       jacusa_header <- c(gsub("^##", "", line), jacusa_header)
@@ -147,20 +148,18 @@ read_result <- function(file, tmpdir = tempdir(), showProgress = FALSE, ...) {
     ...
   )
   colnames(data) <- header_names
+  data <- as.data.frame(data)
   # convert to numeric
   i <- data[, 5] == "*"
   if (any(i)) {
     data[i, 5] <- NA
     data[, 5] <- as.numeric(data[, 5])
   }
-
-  return(as.data.frame(data))
+  return(data)
 }
 
 .to_se <- function(df) {
-  header_names <- colnames(df)
   sample_info <- guess_sample_info(colnames(df))
-  assay_cols <-
   assays <- list()
   # add bases as an assay
   cols <- paste0("bases", sample_info$condition, sample_info$replicate)
@@ -175,7 +174,7 @@ read_result <- function(file, tmpdir = tempdir(), showProgress = FALSE, ...) {
     colnames(assays[[prefix]]) <- sample_info$sample
     assay_cols <- c(assay_cols, cols)
   }
-  for (prefix in c("nonref_ratio", "insertion_ratio", "deletion_ratio")) { # FIXME add more keys
+  for (prefix in c("nonref_ratio", "insertion_ratio", "deletion_ratio")) {
     cols <- paste0(prefix, sample_info$condition, sample_info$replicate)
     assays[[prefix]] <- df[, cols] |>
       lapply(as.numeric) |>

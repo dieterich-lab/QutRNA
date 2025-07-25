@@ -2,8 +2,8 @@
 
 require(optparse)
 require(yardstick)
-require(magrittr)
 require(ggplot2)
+require(dplyr)
 
 option_list <- list(
   make_option(c("-f", "--forward"),
@@ -23,7 +23,7 @@ option_list <- list(
               help = "Cutoff  output"),
   make_option(c("-p", "--precision"),
               type = "double",
-              default = 0.95,
+              default = 0.999,
               help = "Precision cutoff"),
   make_option(c("-t", "--title"),
               type = "character",
@@ -33,6 +33,18 @@ option_list <- list(
 
 opts <- parse_args(
   OptionParser(option_list = option_list),
+  # TODO remove
+  # args = c(
+  #   "-f",
+  #   "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test1/results/bam/mapped/sample~QTRT1_1/subsample~QTRT1_1/orient~fwd/pass_stats/alignment_score.txt",
+  #   "-r",
+  #   "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test1/results/bam/mapped/sample~QTRT1_1/subsample~QTRT1_1/orient~rev/pass_stats/alignment_score.txt",
+  #   "-P",
+  #   "~/tmp/prc.pdf",
+  #   "-S",
+  #   "~/tmp/score.pdf",
+  #   "-C",
+  #   "~/tmp/cutoff.txt"),
   positional_arguments = TRUE
 )
 
@@ -45,32 +57,57 @@ stopifnot(opts$options$prc_plot != "")
 stopifnot(opts$options$cutoff != "")
 stopifnot(opts$options$precision >= 0 & opts$options$precision <= 1)
 
-fwdScore <- scan(opts$options$forward, numeric())
-revScore <- scan(opts$options$reverse, numeric())
+read_score <- function(fname, category) {
+ df <- read.table(fname, header = TRUE, sep = "\t")
+ df <- data.frame(
+   alignment_score = rep(df$alignment_score, times = df$count),
+   category = category
+ )
 
-df <- data.frame(
-  Class = as.factor(
-    c(rep("POS", length(fwdScore)),
-      rep("NEG",length(revScore)))),
-  Score = c(fwdScore, revScore))
-df$Class <- relevel(df$Class, "POS")
+ return(df)
+}
 
-p <- df %>%
-  pr_curve(Class, Score) %>%
+scores <- dplyr::bind_rows(
+  read_score(opts$options$forward, "POS"),
+  read_score(opts$options$reverse, "NEG")) |>
+  mutate(category = as.factor(category) |> relevel("POS"))
+
+curve <- scores |>
+  pr_curve(category, alignment_score)
+p_curve <- curve |>
   autoplot()
-ggsave(opts$options$prc_plot, p)
-
-score.df <- df %>%
-  pr_curve(Class, Score) %>%
+ggsave(opts$options$prc_plot, p_curve)
+df_curve <- curve |>
   as.data.frame()
 
-idx <- which(score.df$precision > opts$options$precision)
-CutOff <- score.df[idx[length(idx)], 1]
-write(CutOff, file = opts$options$cutoff)
+idx <- which(df_curve$precision > opts$options$precision)
+cutoff <- df_curve[idx[length(idx)], 1]
+if (as.character(cutoff) == "Inf") {
+ stop("cutoff cannot be 'Inf'")
+}
+write(cutoff, file = opts$options$cutoff)
 
-pdf(opts$options$score_plot)
-  hist(fwdScore, main = opts$options$title, sub = CutOff, col = "orange", xlab = "Score")
-  hist(revScore, add = TRUE, col = "blue")
-  abline(v = CutOff,col = "red", lwd = 2)
-  legend("topright", c("Real", "Random"), fill = c("orange","blue"))
-dev.off()
+annotation <- data.frame(
+  x = cutoff,
+  y = I(0.5),
+  category = "",
+  label = paste0("Threshold: ", cutoff)
+)
+
+p_score <- scores |>
+  mutate(category = case_match(
+    category,
+    "POS" ~ "Real",
+    "NEG" ~ "Random")) |>
+  ggplot(aes(x = alignment_score, fill = category)) +
+  ylab("Frequency") + 
+  scale_fill_manual(
+    name = "Alignment",
+    values = c("Real" = "orange", "Random" = "blue"),
+    breaks = c("Real", "Random")) +
+  xlab("Alignment score") +
+  geom_histogram(binwidth = 1, alpha = 0.6, position = "identity") +
+  geom_vline(xintercept = cutoff, colour = "red") +
+  geom_text(data = annotation, aes(x = x, y = y, label = label), colour = "red", hjust = -.1) +
+  theme_bw()
+ggsave(opts$options$score_plot, p_score)

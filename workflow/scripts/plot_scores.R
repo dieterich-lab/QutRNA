@@ -1,6 +1,6 @@
 options(error = function() traceback(3))
 
-`%nin%` = Negate(`%in%`)
+`%nin%` <- Negate(`%in%`)
 library(optparse)
 library(ggplot2)
 library(dplyr)
@@ -44,11 +44,11 @@ args_mesc <- c("--score_columns=MDI,MDI_subsampled,MDI_subsampled,MDI_subsampled
               "--remove_prefix=Mus_musculus_tRNA-",
               "--amino_acids=Asn,Asp,His,Tyr",
               "--merge=other",
-              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mESC-wt/cond2~mESC-Qtrt1/bams~samtools/scores_sprinzl.tsv",
-              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mESC-wt/cond2~mESC-Qtrt1/bams~samtools/scores_sprinzl.tsv",
-              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mESC-wt/cond2~mESC-Qtrt1/bams~trim_cigar/scores_sprinzl.tsv",
-              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mESC-wt/cond2~mESC-Qtrt1/bams~overlap//scores_sprinzl.tsv",
-              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mESC-wt/cond2~mESC-Qtrt1/bams~remove_multimappers/scores_sprinzl.tsv")
+              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mESC-wt/cond2~mESC-Qtrt1/bam~samtools/scores_sprinzl.tsv",
+              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mESC-wt/cond2~mESC-Qtrt1/bam~samtools/scores_sprinzl.tsv",
+              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mESC-wt/cond2~mESC-Qtrt1/bam~trim_cigar/scores_sprinzl.tsv",
+              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mESC-wt/cond2~mESC-Qtrt1/bam~overlap//scores_sprinzl.tsv",
+              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mESC-wt/cond2~mESC-Qtrt1/bam~remove_multimappers/scores_sprinzl.tsv")
 
 args_mhc <- c("--score_columns=MDI,MDI_subsampled,MDI_subsampled,MDI_subsampled,MDI_subsampled",
               "--output=~/slides/DFG/plots/mouse-QTRT1/mHC.pdf",
@@ -57,11 +57,11 @@ args_mhc <- c("--score_columns=MDI,MDI_subsampled,MDI_subsampled,MDI_subsampled,
               "--remove_prefix=Mus_musculus_tRNA-",
               "--amino_acids=Asn,Asp,His,Tyr",
               "--merge=other",
-              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mHC-wt/cond2~mHC-Qtrt1/bams~samtools/scores_sprinzl.tsv",
-              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mHC-wt/cond2~mHC-Qtrt1/bams~samtools/scores_sprinzl.tsv",
-              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mHC-wt/cond2~mHC-Qtrt1/bams~trim_cigar/scores_sprinzl.tsv",
-              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mHC-wt/cond2~mHC-Qtrt1/bams~overlap//scores_sprinzl.tsv",
-              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mHC-wt/cond2~mHC-Qtrt1/bams~remove_multimappers/scores_sprinzl.tsv")
+              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mHC-wt/cond2~mHC-Qtrt1/bam~samtools/scores_sprinzl.tsv",
+              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mHC-wt/cond2~mHC-Qtrt1/bam~samtools/scores_sprinzl.tsv",
+              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mHC-wt/cond2~mHC-Qtrt1/bam~trim_cigar/scores_sprinzl.tsv",
+              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mHC-wt/cond2~mHC-Qtrt1/bam~overlap//scores_sprinzl.tsv",
+              "/beegfs/prj/tRNA_Francesca_Tuorto/data/20240312_FT_mESC_mHC_tRNA_RNA002_custom/qutrna/output-final-intermediate-plots/results/jacusa2/cond1~mHC-wt/cond2~mHC-Qtrt1/bam~remove_multimappers/scores_sprinzl.tsv")
 opts <- parse_args(
   OptionParser(option_list = option_list),
   args = args_mhc,

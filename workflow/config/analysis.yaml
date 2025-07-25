@@ -4,7 +4,6 @@ params:
 
 parasail:
   opts: # overwrite default parametes to parasail. Check "schema/config.yaml" (parasail["opts"]) for default values
-  threads: # number of threads to use by parasail
   lines: # split input FASTA into number of lines. MAKE sure thisdivisble by 4!
 
 preprocess:
@@ -22,7 +21,6 @@ preprocess:
 jacusa2:
   min_cov: # require min cov(arge) per BAM to consider pileup by JACUSA2
   opts: # overwrite default parametes to JACUSA2. Check "schema/config.yaml" (jacusa2["opts"]) for default values
-  threads: # number of threads to use by JACUSA2
 
 plots:
   # default plots

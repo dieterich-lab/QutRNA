@@ -1,25 +1,39 @@
-# TODO remove
-#import shutil
-#import subprocess
-#import yaml
-#
-#import numpy as np
-#import pandas as pd
-
-from snakemake.utils import validate
+# FIX FROM
+# https://python-jsonschema.readthedocs.io/en/stable/faq/#why-doesn-t-my-schema-s-default-property-set-the-default-on-my-instance
+from jsonschema import Draft202012Validator, validators
+import os
+from snakemake import workflow
 
 
-VERSION = "2.0.0-DEV-5"
+def extend_with_default(validator_class):
+  validate_properties = validator_class.VALIDATORS["properties"]
 
+  def set_defaults(validator, properties, instance, schema):
+    for property, subschema in properties.items():
+      if "default" in subschema:
+        instance.setdefault(property,subschema["default"])
+
+    for error in validate_properties(
+            validator,properties,instance,schema,
+    ):
+      yield error
+
+  return validators.extend(
+    validator_class,{"properties": set_defaults},
+  )
+DefaultValidatingValidator = extend_with_default(Draft202012Validator)
+
+import yaml
+from snakemake.io import expand
+
+VERSION = "2.0.0-DEV-8"
 
 # validate schemas
-validate(config, "schemas/config.yaml")
+with open(workflow.basedir + "/schemas/config.yaml") as stream:
+  config_schema = yaml.safe_load(stream)
+  DefaultValidatingValidator(config_schema).validate(config)
 pepfile: config["pepfile"]
 pepschema: "schemas/pep.yaml"
-
-
-# TODO  --set-resources parasail_gpu_assisted:slurm_extra="'-p gpu' '--gres=gpu:pascal:1'"
-
 
 # manage snakemake includes
 include: "rules/common.smk"
@@ -35,14 +49,46 @@ include: "rules/info.smk"
 global FILTERS_APPLIED
 global TBL
 global READS
+global COORDS
+global REF_FASTA
+global REF_FASTA_REVERSED
+global CM
+global SPRINZL_MODE
+global SPRINZL
+
+
+def target_include():
+  targets = [
+    REF_FASTA
+  ]
+  if COORDS == "sprinzl":
+    if SPRINZL_MODE == "cm":
+      targets.append(CM)
+    targets.append(SPRINZL)
+  if READS == "fastq":
+    targets.append(REF_FASTA_REVERSED)
+    for row in TBL.itertuples():
+      targets.extend(
+        expand("data/fastq/sample~{sample}/subsample~{subsample}/{bc}.fastq.gz",
+          sample=row.sample_name,
+          subsample=row.subsample_name,
+          bc=row.base_calling))
+  if READS == "bam":
+    for row in TBL.itertuples():
+      targets.extend(
+        expand("data/fastq/sample~{sample}/subsample~{subsample}/{bc}.sorted.bam",
+          sample=row.sample_name,
+          subsample=row.subsample_name,
+          bc=row.base_calling))
+
+  return targets
 
 
 def target_alignment():
-  tbl = TBL.set_index("condition")
   targets = []
-  for row in tbl.itertuples():
+  for row in TBL.itertuples():
     targets.extend(
-        expand("results/plots/alignment/sample~{sample}/subsample~{subsample}/{bc}_score.pdf",
+        expand("results/plots/alignment/sample~{sample}/subsample~{subsample}/{bc}/alignment_score.pdf",
                sample=row.sample_name,
                subsample=row.subsample_name,
                bc=row.base_calling))
@@ -50,6 +96,7 @@ def target_alignment():
   return targets
 
 
+# TODO diagnostic plot
 def target_sprinzl():
   return ["results/seq_to_sprinzl_filtered.tsv", ]
 
@@ -57,16 +104,16 @@ def target_sprinzl():
 def target_trna_plots():
   targets = []
 
-  bam_types = ["final",]
-  if config["plot_preprocessed"] and FILTERS_APPLIED:
-    bam_types += FILTERS_APPLIED
+  # TODO add raw/init
+  bam_types = ["final"]
+  if config["call_filtered"] and FILTERS_APPLIED:
+    bam_types += [f"filtered-{f}" for f in FILTERS_APPLIED]
 
-  for conds in pep.config["qutrna"]["contrasts"]:
+  for conds in pep.config["qutrna2"]["contrasts"]:
     cond1 = conds["cond1"]
     cond2 = conds["cond2"]
 
-    dname =  "results/plots/cond1~{cond1}/cond2~{cond2}/{plot_id}/bams~{bam_type}"
-
+    dname =  "results/plots/cond1~{cond1}/cond2~{cond2}/{plot_id}/bam~{bam_type}"
     for plot in config["plots"]:
       targets.append(
           expand(dname,
@@ -86,11 +133,14 @@ def target_all():
   return targets
 
 
-def target_read_plots():
-  targets = [
-      "results/plots/read_counts.pdf",
-      "results/plots/read_length.pdf"
-  ]
+# TODO add more feature plots
+def target_read_feature_plots():
+  targets = []
+  types = ["condition", "sample", "subsample"]
+  targets.extend(expand("results/plots/read_count/{type}.pdf", type=types))
+  targets.extend(expand("results/plots/read_length/{type}.pdf", type=types))
+  if READS == "fastq":
+    targets.extend(expand("results/plots/alignment/threshold_summary.pdf"))
 
   return targets
 
@@ -107,14 +157,16 @@ def target_info():
 
   return targets
 
+###############################################################################
 # possible targets for snakemake
-
+###############################################################################
+# defaul rule
 rule all:
-  input: target_all() + target_info() + target_read_plots()
+  input: target_all() + target_info() + target_read_feature_plots()
 
 
 rule alignment:
-  input: target_alignment() + target_info() + target_read_plots()
+  input: target_alignment() + target_info() + target_read_feature_plots()
 
 
 rule sprinzl:
@@ -126,8 +178,13 @@ rule trna_plots:
 
 
 rule read_count_plots:
-  input: target_read_plots() + target_info()
+  input: target_read_feature_plots() + target_info()
 
 
 rule info:
   input: target_info()
+
+rule include:
+  input: target_include()
+
+

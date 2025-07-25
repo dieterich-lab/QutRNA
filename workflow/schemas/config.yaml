@@ -14,10 +14,6 @@ properties:
         type: string
         description: Options for parasail
         default: sw_trace_striped_sat -M 1 -X 1 -e 1 -o 1 -x -d -b 100000
-      threads:
-        type: integer
-        description: Number of threads to reserve for parasail
-        default: 1
       lines:
         type: integer
         description: Number of lines to split FASTQ files.
@@ -32,11 +28,8 @@ properties:
       opts:
         type: string
         description:
-        default: --scoring 1,-1,-10,-1 --batchsize 100000
-      threads:
-        type: integer
-        description: Number of threads to reserver for GPU-assisted alignment
-        default: 1
+        default: --scoring 1,-1,-1,-1 --batchsize 100000
+    default: {}
   jacusa2:
     type: object
     properties:
@@ -45,13 +38,10 @@ properties:
         default: jacusa2
       opts:
         type: string
-        default: -m 1 -q 1 -p 1 -D -i -a D,Y -P1 FR-SECONDSTRAND -P2 FR-SECONDSTRAND
+        default: -f X:reads:nonref_ratio:insertion_ratio:deletion_ratio -u DirMult:subsampleRuns=100 -m 1 -q 1 -D -i -P1 FR-SECONDSTRAND -P2 FR-SECONDSTRAND
       min_cov:
         type: integer
         default: 10
-      threads:
-        type: integer
-        default: 2
     default: {}
   cmalign:
     type: object
@@ -59,16 +49,16 @@ properties:
       opts:
         type: string
         default: --notrunc --nonbanded -g
-      threads:
-        type: integer
-        default: 2
     default: {}
-  plot_preprocessed:
+  call_filtered:
     type: boolean
     default: false
-  preprocess:
+  filter:
     type: object
     properties:
+      random_alignment:
+        type: boolean
+        default: false
       samtools:
         type: object
         properties:
@@ -84,43 +74,30 @@ properties:
         properties:
           min:
             type: integer
+            default: 0
           max:
             type: integer
-        default:
-          min: 0
-          max: 0
-      alignment_length:
-        type: object
-        properties:
-          min:
-            type: integer
-          max:
-            type: integer
-        default:
-          min: 0
-          max: 0
+            default: 0
+        default: {}
       trim_cigar:
         type: boolean
         default: false
-      remove_multimappers:
-        type: object
-        properties:
-          keep_uniform_cigar:
-            type: boolean
-            default: false
+      multimapper:
+        type: boolean
+        default: false
       overlap:
         type: object
         properties:
           five_adapter_overlap:
             type: number
+            default: 0
           trna_overlap:
             type: number
+            default: 0
           three_adapter_overlap:
             type: number
-          default:
-            five_adapter_overlap: 0
-            trna_overlap: 0
-            three_adapter_overlap: 0
+            defaul: 0
+          default: {}
     default: {}
   params:
     type: object
@@ -128,16 +105,16 @@ properties:
       alignment:
         type: string
         enum: ["parasail", "gpu"]
+        default: parasail
       precision:
         type: number
         description: Calibrate alignment score offset with precision
+        default: 0.999
       min_aln_score:
         type: integer
         description: Minimum alignment score to considert for calibration
+        default: 10
     default:
-      alignment: parasail
-      precision: 0.99
-      min_aln_score: 10
     required:
       - alignment
       - precision
@@ -163,12 +140,19 @@ properties:
       required:
         - id
         - trnas
-  samtools:
+  transform:
     type: object
     properties:
-      threads:
-        type: integer
-        default: 2
+      bam:
+        type: object
+        properties:
+          base_change:
+            type: string
+            enum: ["U2T", "T2U"]
+          reverse:
+            type: boolean
+            default: false
+        default: {}
     default: {}
   include:
     type: object
@@ -202,5 +186,6 @@ properties:
         enum: ["link", "copy"]
         default: link
     default: {}
+default: {}
 required:
   - pepfile

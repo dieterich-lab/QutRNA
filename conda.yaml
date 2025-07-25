@@ -18,7 +18,7 @@ dependencies:
   - gzip
   - jacusa2
   - pandas
-  - python<3.12
+  - python
   - pysam
   - pyyaml
   - r-curl
@@ -36,6 +36,6 @@ dependencies:
   - r-yardstick
   - r-ggh4x
   - samtools
-  - snakemake<8
+  - snakemake
   - pdfcrop.pl
 

@@ -1,45 +1,155 @@
-import re
-import pandas as pd
 from snakemake import shell
+from snakemake.io import unpack
 
 
 global FILTERS_APPLIED
 
 
+wildcard_constraints:
+  COND1="[^/~]+",
+  COND2="[^/~]+",
+  BAM_TYPE="[^/]+",
+  SAMPLE="[^~/]+",
+  SUBSAMPLE="[^~/]+",
+  ORIENT="[^~/]+",
+  BC="[^~/]+"
+
+
+def create_include(name_, input_, output_, params_):
+  rule:
+    name: f"include_{name_}"
+    input: input_
+    output: output_
+    params: include=params_
+    run:
+      if params.include == "copy":
+        cmd = "cp"
+      elif params.include == "link":
+        cmd = "ln -s"
+
+      shell(cmd + " {input:q} {output:q}")
+
+
+# coordinate system: sequence or sprinzl
+# in case of sprinzl handle if model or precalculate mapping
+if pep.config["qutrna2"]["coords"] == "sprinzl":
+  COORDS = "sprinzl"
+  SPRINZL = "data/sprinzl.txt"
+  create_include("sprinzl",
+    pep.config["qutrna2"]["sprinzl"],
+    SPRINZL,
+    config["include"].get("sprinzl","copy"))
+  if "cm" in pep.config["qutrna2"]:
+    SPRINZL_MODE = "cm"
+    CM = "data/cm.stk"
+    create_include("cm",
+      pep.config["qutrna2"]["cm"],
+      CM,
+      config["include"]["cm"])
+  elif "seq_to_sprinzl" in pep.config["qutrna2"]:
+    SPRINZL_MODE = "seq2sprinzl"
+    SEQ_TO_SPRINZL = "data/seq_to_sprinzl.tsv"
+    create_include("seq_to_sprinzl",
+      pep.config["qutrna2"]["seq_to_sprinzl"],
+      SEQ_TO_SPRINZL,
+      config["include"].get("seq_to_sprinzl","copy"))
+  else:
+    raise Exception("Must provide other 'cm' or 'seq_to_sprinzl' in config!")
+  SEQ_TO_SPRINZL = "results/seq_to_sprinzl_filtered.tsv"
+else:
+  COORDS = "sequence"
+
+# include and transform reference
 REF_FASTA = "data/ref.fasta"
-REF_NO_LINKER_FASTA = "results/data/no_linker.fasta"
-REF_FILTERED_TRNAS_FASTA = "results/data/filtered_trnas.fasta"
-CM = "data/cm.stk"
-SPRINZL = "data/sprinzl.txt"
-SEQ_TO_SPRINZL = "results/seq_to_sprinzl_filtered.tsv"
-MODS = "data/mods.tsv"
-MOD_ABBREVS = "data/mod_abbrevs.tsv"
+create_include("ref_fasta",
+  pep.config["qutrna2"]["ref_fasta"],
+  REF_FASTA,
+  config["include"]["ref_fasta"])
+REF_NO_LINKER_FASTA = "results/data/ref_no_linker.fasta"
+REF_FILTERED_TRNAS_FASTA = "results/data/ref_filtered_trnas.fasta"
 DEFAULT_SCORE = "MDI::mismatch_score+deletion_score+insertion_score"
 
 
+# include bams or fastq from sample table
+def _include_fnames(ftype):
+  def helper(wildcards):
+    tbl = TBL.loc[[wildcards.SAMPLE]]
+    j = (tbl.subsample_name == wildcards.SUBSAMPLE) & (tbl.base_calling == wildcards.BC)
+    if sum(j.tolist()) != 1:
+      raise Exception("Housten, we have a problem!")
+
+    return tbl.loc[j, ftype].to_list()[0]
+
+  return helper
+
 # FASTQ or BAM
-READS = ""
 if "bam" in pep.sample_table.columns and "fastq" in pep.sample_table.columns:
   raise Exception("Only column bam or fastq can be set in sample table.")
+
+READS = "" # will be bam or fastq
+READS_INPUT = "" # will point to a path where bam or fastq can be found
 if "bam" in pep.sample_table.columns:
   READS = "bam"
-if "fastq" in pep.sample_table.columns:
+  READS_INPUT = "data/bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam"
+
+  create_include("bams",
+    _include_fnames("bam"),
+    READS_INPUT,
+    config["include"]["bam"])
+
+  if "bam" in config["transform"]:
+    base_change = config["transform"]["bam"].get("base_change")
+    reverse_seq = config["transform"]["bam"].get("reverse")
+    if base_change or reverse_seq:
+      _old_reads_input = READS_INPUT
+      READS_INPUT = "results/bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam",
+
+      rule transform_bam:
+        input: _old_reads_input
+        output: READS_INPUT
+        params: base_change=lambda wildcards: "--base-change {base_change} " if base_change else "",
+                reverse=lambda wildcards: "--reverse " if reverse_seq else ""
+        conda: "qutrna2"
+        log: "logs/transform_bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.log"
+        shell: """
+          python {workflow.basedir}/scripts/bam_transform.py {params.reverse} {params.base_change} {input:q} > {output:q}
+        """
+elif "fastq" in pep.sample_table.columns:
   READS = "fastq"
+  READS_INPUT = "data/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz"
+  REF_FASTA_REVERSED = "results/data/ref_reversed.fasta"
 
-# seq or sprinzl coordinates use optional mods annotation
-SCORES = "scores"
-if pep.config["qutrna"]["coords"] == "sprinzl":
-  SCORES += "_sprinzl"
+  create_include("fastq",
+    _include_fnames("fastq"),
+    READS_INPUT,
+    config["include"]["fastq"])
+
+  if config["transform"].get("fastq", {}).get("base_change"):
+    _old_reads_input = "data/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz"
+    READS_INPUT = "results/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz"
+
+    rule transform_fastq:
+      input: _old_reads_input
+      output: READS_INPUT
+      log: "logs/transform_fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.log"
+      params: base_change=config["transform"]["fastq"]["base_change"]
+      conda: "qutrna2"
+      shell: """
+        python {workflow.basedir}/scripts/fastq_transform.py --output {output:q} --base-change {params.base_change} {input:q} 2> {log:q}
+      """
+
+  rule reverse_fasta:
+    input: REF_FASTA
+    output: REF_FASTA_REVERSED
+    log: "logs/reverse_fasta.log"
+    conda: "qutrna2"
+    shell: """
+        python {workflow.basedir}/scripts/fasta_transform.py --output {output:q} --reverse {input:q} 2> {log:q}
+      """
 else:
-  SCORES += "_seq"
-if "mods" in pep.config["qutrna"]:
-  SCORES += "-mods"
-SCORES += ".tsv"
+  raise Exception("Missing ('bam' or ' 'fastq') column in sample table.")
 
-# FIXME
-# sprinzl CM or seq2sprinzl mapping
 
-# FIXME nested cols
 __nested_cols = []
 TBL = pep.sample_table
 for c in ["subsample_name", "base_calling", READS]:
@@ -51,122 +161,51 @@ if __nested_cols:
 SAMPLES = TBL["sample_name"].unique().tolist()
 SUBSAMPLES = TBL["subsample_name"].tolist()
 
-# FIXME - does not work as expected
-wildcard_constraints:
-  SAMPLE="|".join(SAMPLES),
-  SUBSAMPLE="|".join(SUBSAMPLES),
-  ORIENT="|".join(["fwd", "rev"]),
-  BC="|".join(["pass", "fail", "merged", "unknown"])
 
+# seq or sprinzl coordinates use optional mods annotation
+SCORES = "scores"
+if COORDS == "sprinzl":
+  SCORES += "_sprinzl"
+else:
+  SCORES += "_seq"
+if "mods" in pep.config["qutrna2"]:
+  SCORES += "-mods"
+  MODS = "data/mods.tsv"
+  MOD_ABBREVS = "data/mod_abbrevs.tsv"
+SCORES += ".tsv"
 
-def fname2sample(fname):
-  r = re.search("/sample~([^~/]+)", fname)
-  return r.group(1)
-
-
-def fname2subsample(fname):
-  r = re.search("/subsample~([^~/]+)", fname)
-  return r.group(1)
-
-
-def create_include(name_, input_, output_, params_):
-  rule:
-    name: f"dyn_include_{name_}"
-    input: input_
-    output: output_
-    params: include=params_
-    run:
-        if params.include == "copy":
-          cmd = "cp"
-        elif params.include == "link":
-          cmd = "ln -s"
-
-        shell(cmd + " {input:q} {output:q}")
-
-
-create_include("ref_fasta",
-               pep.config["qutrna"]["ref_fasta"],
-               REF_FASTA,
-               config["include"]["ref_fasta"])
-
-
-if pep.config["qutrna"]["coords"] == "sprinzl":
-  create_include("sprinzl",
-                 pep.config["qutrna"]["sprinzl"],
-                 SPRINZL,
-                 config["include"].get("sprinzl", "copy"))
-  if "cm" in pep.config["qutrna"]:
-    create_include("cm",
-                   pep.config["qutrna"]["cm"],
-                   CM,
-                   config["include"]["cm"])
-  elif "seq_to_sprinzl" in pep.config["qutrna"]:
-    SEQ_TO_SPRINZL = "data/seq_to_sprinzl.tsv"
-    create_include("seq_to_sprinzl",
-                   pep.config["qutrna"]["seq_to_sprinzl"],
-                   SEQ_TO_SPRINZL,
-                   config["include"].get("seq_to_sprinzl", "copy"))
-  else:
-    raise Exception("Must provide other 'cm' or 'seq_to_sprinzl'!")
-
-if "mods" in pep.config["qutrna"]:
+if "mods" in pep.config["qutrna2"]:
   create_include("mods",
-                 pep.config["qutrna"]["mods"]["file"],
+                 pep.config["qutrna2"]["mods"]["file"],
                  MODS,
                  config["include"]["mods"]["file"])
 
-  if "abbrevs" in pep.config["qutrna"]:
+  if "abbrevs" in pep.config["qutrna2"]:
     create_include("abbrevs",
-                   pep.config["qutrna"]["mods"]["abbrevs"],
+                   pep.config["qutrna2"]["mods"]["abbrevs"],
                    MODS,
                    config["include"]["mods"]["abbrevs"])
-
-
-def _include_fnames(ftype):
-  def helper(wildcards):
-    tbl = TBL.loc[[wildcards.SAMPLE]]
-    i = (tbl.subsample_name == wildcards.SUBSAMPLE) & (tbl.base_calling == wildcards.BC)
-    if sum(i) != 1:
-      raise Exception("")
-
-    return tbl.loc[i, ftype].to_list()[0]
-
-  return helper
-
-
-create_include("bams",
-               _include_fnames("bam"),
-               "data/bams/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam",
-               config["include"]["bam"])
-
-if READS != "bams":
-  create_include("fastq",
-               _include_fnames("fastq"),
-               "data/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz",
-               config["include"]["fastq"])
 
 
 rule remove_linker:
   input: REF_FASTA
   output: REF_NO_LINKER_FASTA
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
+  conda: "qutrna2"
   log: "logs/remove_linker.log"
-  params: linker5=pep.config["qutrna"]["linker5"],
-          linker3=pep.config["qutrna"]["linker3"]
+  params: linker5=pep.config["qutrna2"]["linker5"],
+          linker3=pep.config["qutrna2"]["linker3"]
   shell: """
     python {workflow.basedir}/scripts/remove_linker.py \
         --linker5 {params.linker5} \
         --linker3 {params.linker3} \
         --output {output:q} \
         {input:q} \
-        2> "{log}"
+        2> {log:q}
   """
 
 
 def _remove_trans_opts(_):
-  trnas = pep.config["qutrna"].get("remove_trnas", [])
+  trnas = pep.config["qutrna2"].get("remove_trnas", [])
 
   opts = []
   for trna in trnas:
@@ -178,9 +217,7 @@ def _remove_trans_opts(_):
 rule remove_trnas:
   input: REF_NO_LINKER_FASTA
   output: REF_FILTERED_TRNAS_FASTA
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
+  conda: "qutrna2"
   log: "logs/remove_trnas.log"
   params: opts=_remove_trans_opts
   shell: """
@@ -188,103 +225,84 @@ rule remove_trnas:
         {params.opts} \
         --output {output:q} \
         {input:q} \
-        2> "{log}"
+        2> {log:q}
   """
 
+# FIXME
+# change to feature|read_type|sample|subsample|bc
+def _aggregate_stats_input(wildcards):
+  t2fnames = {}
+  for sample in SAMPLES:
+    df = TBL.loc[[sample]]
 
-def _collect_input(suffix):
-  def helper(wildcards):
-    parsed = suffix.format(wildcards=wildcards)
-    t2fnames = {}
-    for sample in SAMPLES:
-      df = TBL.loc[[sample]]
-      # collect subsamples
-      for row in df.itertuples(index=False):
-        if not hasattr(row, "bam"):
-          raise Exception("Not implemented yet") # TODO implement, when BAM not available
-        t2fnames.setdefault("raw", []).append(f"data/bams/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.{parsed}") # TODO what if no base calling
-        for read_type in FILTERS_APPLIED:
-          t2fnames.setdefault(read_type, []).append(f"results/bams/preprocessed/{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}.{parsed}") # TODO what if no base calling
-    return t2fnames
+    # collect subsamples
+    for row in df.itertuples(index=False):
+      if hasattr(row, "bam"):
+        t2fnames.setdefault("raw", []).append(f"data/bam/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt")
+      elif hasattr(row, "fastq"):
+        t2fnames.setdefault("mapped",[]).append(f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~fwd/{row.base_calling}_stats/{wildcards.feature}.txt")
+        if wildcards.feature == "alignment_score":
+          t2fnames.setdefault("mapped-rev",[]).append(f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~rev/{row.base_calling}_stats/{wildcards.feature}.txt")
+      else:
+          raise Exception(f"READS must be ('bam' or 'fastq')")
 
-  return helper
+      for read_type in FILTERS_APPLIED:
+        t2fnames.setdefault(read_type, []).append(f"results/bam/filtered-{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt")
 
+  return t2fnames
 
-rule collect_read_counts:
-  input: unpack(_collect_input("sorted_read_count.txt"))
-  output: "results/read_counts.tsv"
-  run:
-    dfs = []
-    for read_type, fnames in input.items():
-      for fname in fnames:
-        df = pd.read_csv(fname, sep="\t", header=None, names=["read_count"])
+# FIXME
+def _aggregate_stats_params(wildcards):
+  read_types = []
+  conditions = []
+  samples = []
+  subsamples = []
+  base_calls = []
 
-        df["read_type"] = read_type
-        df[["sample", "subsample", "base_calling"]] = ""
-        sample = fname2sample(fname)
-        df["sample"] = sample
-        df["subsample"] = fname2subsample(fname)
-        df["base_calling"] = re.search("/([^/]+).sorted_read_count.txt$", fname).group(1)
-        df["condition"] = TBL.loc[[sample]]["condition"].unique()[0]
-        df["fname"] = fname
+  for sample in SAMPLES:
+    df = TBL.loc[[sample]]
 
-        dfs.append(df)
-    df = pd.concat(dfs, ignore_index=True)
-    df.to_csv(output[0], sep="\t", index=False)
+    # collect subsamples
+    for row in df.itertuples(index=False):
+      if hasattr(row, "bam"):
+        read_types.append("--read-types raw")
+        conditions.append(f"--conditions {row.condition}")
+        samples.append(f"--samples {sample}")
+        subsamples.append(f"--subsamples {row.subsample_name}")
+        base_calls.append(f"--base-calls {row.base_calling}")
+      elif hasattr(row, "fastq"):
+        read_types.append("--read-types mapped")
+        conditions.append(f"--conditions {row.condition}")
+        samples.append(f"--samples {sample}")
+        subsamples.append(f"--subsamples {row.subsample_name}")
+        base_calls.append(f"--base-calls {row.base_calling}")
+        if wildcards.feature == "alignment_score":
+          read_types.append("--read-types mapped-rev")
+          conditions.append(f"--conditions {row.condition}")
+          samples.append(f"--samples {sample}")
+          subsamples.append(f"--subsamples {row.subsample_name}")
+          base_calls.append(f"--base-calls {row.base_calling}")
+      for filter_name in FILTERS_APPLIED:
+        read_types.append(f"--read-types {filter_name}")
+        conditions.append(f"--conditions {row.condition}")
+        samples.append(f"--samples {sample}")
+        subsamples.append(f"--subsamples {row.subsample_name}")
+        base_calls.append(f"--base-calls {row.base_calling}")
 
+  opts = read_types + conditions + samples + subsamples + base_calls
+  return " ".join(opts)
 
-rule collect_as:
-  input: unpack(_collect_input("sorted_alignment_score.tsv"))
-  output: "results/alignment_scores.tsv"
-  run:
-    dfs = []
-    for read_type, fnames in input.items():
-      for fname in fnames:
-        df = pd.read_csv(fname, sep="\t", header=None, names=["as", "count"])
-
-        df["read_type"] = read_type
-        df[["sample", "subsample", "base_calling"]] = ""
-        sample = fname2sample(fname)
-        df["sample"] = sample
-        df["subsample"] = fname2subsample(fname)
-        df["base_calling"] = re.search("/([^/]+).sorted_alignment_scores.tsv$", fname).group(1)
-        df["condition"] = TBL.loc[[sample]]["condition"].unique()[0]
-        df["fname"] = fname
-
-        dfs.append(df)
-    df = pd.concat(dfs, ignore_index=True)
-    df.to_csv(output[0], sep="\t", index=False)
-
-
-rule cut_samtools_stats:
-  input: "{prefix}.stats"
-  output: temp("{prefix}_stats_{type}.tsv")
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
+rule aggregate_stats:
+  input: unpack(_aggregate_stats_input)
+  output: "results/stats/{feature}.txt"
+  conda: "qutrna2"
+  # params sample subsample read_type
+  log: "logs/stats/{feature}.log"
+  params: opts=_aggregate_stats_params
   shell: """
-    grep "^{wildcards.type}" {input:q} | cut -f 2- > {output:q}
+    python {workflow.basedir}/scripts/aggregate_feature.py \
+      --output {output:q} \
+      {params.opts} \
+      {input:q} \
+      2> {log:q}
   """
-
-
-rule collect_samtools_stats:
-  input: unpack(_collect_input("sorted_stats_{wildcards.type}.tsv"))
-  output: "results/samtools/stats/{type}.tsv"
-  run:
-    type2cols = {
-        "RL": ["read_length", "count"],}
-    dfs = []
-    for read_type, fnames in input.items():
-      for fname in fnames:
-        df = pd.read_csv(fname, sep="\t", header=None, names=type2cols[wildcards.type])
-        sample = fname2sample(fname)
-        df["read_type"] = read_type
-        df["sample"] = sample
-        df["subsample"] = fname2subsample(fname)
-        df["base_calling"] = re.search("^(.+).sorted.+$", os.path.basename(fname)).group(1)
-        df["condition"] = TBL.loc[[sample]]["condition"].unique()[0]
-        df["fname"] = fname
-        dfs.append(df)
-
-    df = pd.concat(dfs, ignore_index=True)
-    df.to_csv(output[0], sep="\t", index=False)

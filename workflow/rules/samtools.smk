@@ -4,134 +4,101 @@ global READS
 global TBL
 
 
-rule samtools_index:
+rule samtools_bam_index:
   input: "{prefix}.sorted.bam"
   output: "{prefix}.sorted.bam.bai"
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
-  log: "logs/samtools/index/{prefix}.log"
+  conda: "qutrna2"
+  log: "logs/samtools/index_bam/{prefix}.log"
   shell: """
-    samtools index {input:q} 2> "{log}"
+    samtools index {input:q} 2> {log:q}
   """
 
 
-rule samtools_fa_index:
-  input: "{prefix}.fa"
-  output: "{prefix}.fa.fai"
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
-  log: "logs/samtools_fa_index/{prefix}.log"
+rule samtools_fasta_index:
+  input: "{prefix}.fasta"
+  output: "{prefix}.fasta.fai"
+  conda: "qutrna2"
+  log: "logs/samtools_fasta_index/{prefix}.log"
   shell: """
-    samtools faindex {input:q} 2> "{log}"
+    samtools faidx {input:q} 2> {log:q}
   """
 
 
 rule samtools_stats:
-  input: "{prefix}.bam"
-  output: "{prefix}.stats"
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
+  input: "{prefix}.sorted.bam"
+  output: "{prefix}_stats/samtools.txt"
+  conda: "qutrna2"
   log: "logs/samtools/stats/{prefix}.log"
   shell: """
-    samtools stats {input:q} > {output:q} 2> "{log}"
+    samtools stats {input:q} > {output:q} 2> {log:q}
+  """
+
+
+SAMTOOLS_STATS_TYPE2COLS = {
+  "RL": ["read_length", "count"],
+}
+
+rule samtools_cut_stats:
+  input: "{prefix}_stats/samtools.txt"
+  output: "{prefix}_stats/samtools_{type}.txt"
+  conda: "qutrna2"
+  params: cols=lambda wildcards: "\t".join(SAMTOOLS_STATS_TYPE2COLS[wildcards.type])
+  log: "logs/samtools_cut_stats/{prefix}/{type}.log"
+  shell: """
+    (
+      echo -e "{params.cols}" > {output:q}
+      grep "^{wildcards.type}" {input:q} | cut -f 2- >> {output:q}
+    ) 2> {log:q}
   """
 
 
 rule samtools_coverage:
-  input: "{prefix}.bam"
-  output: "{prefix}_coverage.tsv"
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
+  input: "{prefix}.sorted.bam"
+  output: "{prefix}_stats/samtools_coverage.txt"
+  conda: "qutrna2"
   log: "logs/samtools/coverage/{prefix}.log"
   shell: """
-    samtools coverage {input:q} > {output:q} 2> "{log}"
+    samtools coverage {input:q} > {output:q} 2> {log:q}
   """
 
 
 rule samtools_read_count:
-  input: "{prefix}.bam"
-  output: "{prefix}_read_count.txt"
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
+  input: "{prefix}.sorted.bam"
+  output: "{prefix}_stats/read_count.txt"
+  conda: "qutrna2"
   log: "logs/samtools/read_count/{prefix}.log"
   shell: """
-    samtools view -c {input:q} > {output:q} 2> "{log}"
+    samtools view -c {input:q} | awk 'BEGIN {{ print "reads" }} ; {{ print }} '> {output:q} 2> {log:q}
   """
 
 
-rule samtools_multimappers:
-  input: "{prefix}.bam"
-  output: "{prefix}_multimappers.tsv"
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
-  log: "logs/samtools/multimappers/{prefix}.log"
+rule samtools_multimapper:
+  input: "{prefix}.sorted.bam"
+  output: "{prefix}_stats/multimapper.txt"
+  conda: "qutrna2"
+  log: "logs/samtools/multimapper/{prefix}.log"
   shell: """
     ( samtools view {input:q} | \
       cut -f1,3 | \
       sort -k1,1 | \
-      python  {workflow.basedir}/count_multimapper.py ) > {output:q} 2> "{log}"
+      python  {workflow.basedir}/count_multimapper.py ) > {output:q} 2> {log:q}
   """
 
 
-rule samtools_get_as:
-  input: "{prefix}.bam"
-  output: "{prefix}_as.tsv"
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
-  log: "logs/samtools/get_as/{prefix}.log"
+rule samtools_alignment_score:
+  input: "{prefix}.sorted.bam"
+  output: "{prefix}_stats/alignment_score.txt"
+  conda: "qutrna2"
+  log: "logs/samtools/alignment_score/{prefix}.log"
   shell: """
-    ( python {workflow.basedir}/get_as.py ) {input:q} | sort | uniq -c ) > {output:q} 2> "{log}"
-  """
-
-
-# TODO
-rule samtools_get_score:
-  input: "results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam"
-  output: "results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_score.txt"
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
-  log: "logs/samtools/get_score/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.log"
-  shell: """
-    (samtools view {input:q} | cut -f 5 > {output:q}) 2> "{log}"
-  """
-
-
-# FIXME
-rule samtools_filter_by_cutoff:
-  input: bam="results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~fwd/{BC}.sorted.bam",
-         cutoff="results/bams/filtered/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_cutoff.txt"
-  output: "results/bams/final/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam"
-  conda: "qutrna"
-  resources:
-    mem_mb=2000
-  log: "logs/samtools/filter_by_cutoff/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.log"
-  shell: """
-    samtools view -b -q `cat {input.cutoff:q}` \
-      -o {output:q} {input.bam:q} 2> "{log}"
+    python {workflow.basedir}/scripts/get_as.py {input:q} > {output:q} 2> {log:q}
   """
 
 
 def _samtools_merge_input(wildcards):
   fnames = []
   for row in TBL.loc[[wildcards.SAMPLE]].itertuples():
-    if READS == "fastq":
-        fname = f"results/bams/final/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
-    elif READS == "bam":
-      if wildcards.bam_type == "final":
-        filter_ = FILTERS_APPLIED[-1]
-        fname = f"results/bams/preprocessed/{filter_}/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
-      else:
-        fname = f"results/bams/preprocessed/{{bam_type}}/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
-    else:
-      raise Exception()
+    fname = f"results/bam/{{BAM_TYPE}}/sample~{row.sample_name}/subsample~{row.subsample_name}/{row.base_calling}.sorted.bam"
     fnames.append(fname)
 
   return fnames
@@ -139,13 +106,10 @@ def _samtools_merge_input(wildcards):
 
 rule samtools_merge:
   input: _samtools_merge_input
-  output: "results/bams/{bam_type}/{SAMPLE}.sorted.bam"
-  conda: "qutrna"
-  resources:
-    mem_mb=10000
-  log: "logs/samtools/merge/{SAMPLE}/{bam_type}.log"
+  output: "results/bam/{BAM_TYPE}/{SAMPLE}.sorted.bam"
+  conda: "qutrna2"
+  log: "logs/samtools/merge/{BAM_TYPE}/{SAMPLE}.log"
+  threads: 1
   shell: """
-    samtools merge {output:q} {input:q} 2> "{log}"
+    samtools merge -@ {threads} {output:q} {input:q} 2> {log:q}
   """
-
-
