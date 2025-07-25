@@ -6,15 +6,11 @@ import pandas as pd
 
 @click.command()
 @click.option("--output", "-o", type=click.Path(), required=True)
-@click.option("--read-types", "-r", type=str, multiple=True, required=True)
-@click.option("--conditions", "-c", type=str, multiple=True, required=True)
-@click.option("--samples", "-s", type=str, multiple=True, required=True)
-@click.option("--subsamples", "-u", type=str, multiple=True, required=True)
-@click.option("--base-calls", "-b", type=str, multiple=True, required=True)
+@click.option("--data", "-d", type=(str, str, str, str, str), multiple=True, required=True)
 @click.argument("FNAMES", type=click.Path(), nargs=-1)
-def process(output, read_types, conditions, samples, subsamples, base_calls, fnames):
+def process(fnames, data, output):
   dfs = []
-  for read_type, sample, subsample, condition, base_call, fname in zip(read_types, samples, subsamples, conditions, base_calls, fnames):
+  for (read_type, condition, sample, subsample, base_call), fname in zip(data, fnames):
     df = pd.read_csv(fname, sep="\t")
 
     df["read_type"] = read_type

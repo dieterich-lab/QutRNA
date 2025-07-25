@@ -130,7 +130,7 @@ rule plot_threshold_summary:
   log: "logs/plot/threshold_summary.log"
   params: bam_types=",".join(["mapped", "mapped-rev"])
   shell: """
-    Rscript {workflow.basedir}/scripts/plot_alignment_summary.R \
+    Rscript {workflow.basedir}/scripts/plot_threshold_summary.R \
          --type {params.bam_types} \
          --output {output:q} {input:q} \
          2> {log:q}

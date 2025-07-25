@@ -2,7 +2,6 @@
 # https://python-jsonschema.readthedocs.io/en/stable/faq/#why-doesn-t-my-schema-s-default-property-set-the-default-on-my-instance
 from jsonschema import Draft202012Validator, validators
 import os
-from snakemake import workflow
 
 
 def extend_with_default(validator_class):

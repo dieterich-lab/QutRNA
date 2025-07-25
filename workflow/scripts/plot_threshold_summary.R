@@ -18,9 +18,9 @@ option_list <- list(
 
 opts <- parse_args(
   OptionParser(option_list = option_list),
-  c("--type", "mapped,mapped-rev",
-    "--output", "~/tmp/results/plots/alignment/threshold_summary.pdf",
-    "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test1/results/stats/alignment_score.txt"),
+  #c("--type", "mapped,mapped-rev",
+  #  "--output", "~/tmp/results/plots/alignment/threshold_summary.pdf",
+  #  "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test1/results/stats/alignment_score.txt"),
   positional_arguments = TRUE
 )
 
