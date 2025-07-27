@@ -229,29 +229,38 @@ rule remove_trnas:
   """
 
 
-def _aggregate_stats_input(wildcards):
-  def helper(key):
-    return "|".join(key)
+def _aggregate_stats_helper(read_type, sample, row):
+  key = [row.condition, sample, row.subsample_name, row.base_calling]
+  return "|".join([read_type] + key)
 
+def _aggregate_stats_input(wildcards):
+  if wildcards.feature == "alignment_score" and READS == "fastq":
+    t2fnames = _aggregate_stats_general_input(wildcards)
+    for sample in SAMPLES:
+      df = TBL.loc[[sample]]
+      for row in df.itertuples(index=False):
+        t2fnames[_aggregate_stats_helper("mapped-rev", sample, row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~rev/{row.base_calling}_stats/{wildcards.feature}.txt"
+  else:
+    t2fnames = _aggregate_stats_general_input(wildcards)
+
+  return t2fnames
+
+def _aggregate_stats_general_input(wildcards):
   t2fnames = {}
   for sample in SAMPLES:
     df = TBL.loc[[sample]]
 
     # collect subsamples
     for row in df.itertuples(index=False):
-      key = [row.condition, sample, row.subsample_name, row.base_calling]
-
       if hasattr(row, "bam"):
-        t2fnames[helper(["raw"] + key)] = f"data/bam/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt"
+        t2fnames[_aggregate_stats_helper("raw", sample, row)] = f"data/bam/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt"
       elif hasattr(row, "fastq"):
-        t2fnames[helper(["mapped"] + key)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~fwd/{row.base_calling}_stats/{wildcards.feature}.txt"
-        if wildcards.feature == "alignment_score":
-          t2fnames[helper(["mapped"] + key)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~rev/{row.base_calling}_stats/{wildcards.feature}.txt"
+        t2fnames[_aggregate_stats_helper("raw", sample, row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~fwd/{row.base_calling}_stats/{wildcards.feature}.txt"
       else:
         raise Exception(f"READS must be ('bam' or 'fastq')")
 
       for read_type in FILTERS_APPLIED:
-        t2fnames[helper([read_type] + key)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~rev/{row.base_calling}_stats/{wildcards.feature}.txt"
+        t2fnames[_aggregate_stats_helper("raw", sample, row)] = f"results/bam/filtered-{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt"
 
   return t2fnames
 
@@ -266,7 +275,6 @@ rule aggregate_stats:
   input: unpack(_aggregate_stats_input)
   output: "results/stats/{feature}.txt"
   conda: "qutrna2"
-  # params sample subsample read_type
   log: "logs/stats/{feature}.log"
   params: opts=_aggregate_stats_params
   shell: """

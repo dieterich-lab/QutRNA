@@ -61,9 +61,9 @@ class FilterRandomAlignment(Filter):
     super().__init__("random_alignment")
 
   def _process(self):
-    self.input["cutoff"] = "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_cutoff.txt"
+    self.input["cutoff"] = "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_stats/cutoff.txt"
     self.cmds.append(
-      f"python {workflow.basedir}/scripts/filter_by_as.py --min-alignment-score `cat {{input.cutoff:q}}` {{input.bam}} > {{output.bam:q}}")
+      f"python {workflow.basedir}/scripts/filter_by_as.py --min-alignment-score `cat {{input.cutoff:q}}` {{input.bam:q}} > {{output.bam:q}}")
 
     return True
 
@@ -79,7 +79,7 @@ class FilterSamtools(Filter):
       self.cmds.append(f"samtools view {{params.filter}} -b {input_}")
       input_ = "/dev/stdin"
 
-    if "calmd" in config and config["calmn"]:
+    if "calmd" in config and config["calmd"]:
       self.input["ref"] = REF_FASTA
       self.cmds.append(f"samtools calmd -b {input_}")
 

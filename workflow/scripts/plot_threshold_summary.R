@@ -10,6 +10,9 @@ option_list <- list(
   make_option(c("-t", "--type"),
               type = "character",
               help = "BAM type(s)"),
+  make_option(c("-c", "--cutoff"),
+              type = "character",
+              help = "Cutoff(s)"),
   make_option(c("-o", "--output"),
               type = "character",
               help = "Output")
@@ -25,11 +28,13 @@ opts <- parse_args(
 )
 
 stopifnot(length(opts$args) == 1)
+stopifnot(!is.null(opts$options$cutoffs))
 read_types <- strsplit(opts$options$type, ",")[[1]]
 stopifnot(read_types != "")
 stopifnot(length(read_types) > 1)
 
-df <- read.table(opts$args,
+cutoffs <- read.table(opts$options$cutoffs, header = TRUE, sep = "\t")
+scores <- read.table(opts$args,
                  sep = "\t",
                  header = TRUE) |>
   filter(read_type %in% read_types) |>
@@ -41,23 +46,27 @@ df <- read.table(opts$args,
          category = as.factor(category),
          label = paste0("sample~", sample, ", subsample~", subsample, ", ", "base calling~", base_calling))
 
+alignment_score_lim <- range(scores$alignment_score)
+count_lim <- range(scores$count)
 plots <- NULL
-for (cond in unique(df$condition)) {
-  p <- df |>
+for (cond in unique(scores$condition)) {
+  filtered_cutoffs <- cutoffs |>
+    filter(condition == cond)
+  p <- scores |>
     filter(condition == cond) |>
     ggplot(aes(x = alignment_score, y = count, fill = category)) +
-    ylab("Frequency") + 
+    ylab("Frequency") +
     scale_fill_manual(
       name = "Alignment",
       values = c("Real" = "orange", "Random" = "blue"),
       breaks = c("Real", "Random")) +
     xlab("Alignment score") +
     geom_col() +
-    # TODO add threshold
-    # geom_vline(xintercept = cutoff, colour = "red") +
-    # geom_text(data = annotation, aes(x = x, y = y, label = label), colour = "red", hjust = -.1) +
+    geom_vline(data = filtered_cutoffs, aes(xintercept = cutoff), colour = "red") +
+    geom_text(data = filtered_cutoffs, aes(x = cutoff, y = I(0.5), label = label), colour = "red", hjust = -.1) +
     theme_bw() +
-    facet_grid(label ~ condition)
+    facet_grid(label ~ condition) +
+    xlim(alignment_score_lim) + ylim(count_lim)
   if (is.null(plots)) {
     plots <- p
   } else {

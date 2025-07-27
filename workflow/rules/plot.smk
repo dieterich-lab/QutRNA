@@ -124,7 +124,8 @@ rule plot_multimapper:
 
 
 rule plot_threshold_summary:
-  input: "results/stats/alignment_score.txt"
+  input: score="results/stats/alignment_score.txt",
+         cutoff="results/stats/cutoff.txt",
   output: "results/plots/alignment/threshold_summary.pdf"
   conda: "qutrna2"
   log: "logs/plot/threshold_summary.log"
@@ -132,6 +133,7 @@ rule plot_threshold_summary:
   shell: """
     Rscript {workflow.basedir}/scripts/plot_threshold_summary.R \
          --type {params.bam_types} \
+         --cutoff {input.cutoff} \
          --output {output:q} {input:q} \
          2> {log:q}
   """

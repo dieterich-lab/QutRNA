@@ -22,7 +22,7 @@ rule parasail_infer_cutoff:
          rev="results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~rev/{BC}_stats/alignment_score.txt"
   output: prc_plot="results/plots/alignment/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}/prc_reads.pdf",
           score_plot="results/plots/alignment/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}/alignment_score.pdf",
-          cutoff="results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_cutoff.txt"
+          cutoff="results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_stats/cutoff.txt"
   params: precision=config["params"]["precision"],
           title=lambda wildcards: f"tRNA Alignment Score {wildcards.BC} distributions"
   log: "logs/parasail/filter_by_random_score/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.log"
