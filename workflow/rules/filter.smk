@@ -63,7 +63,7 @@ class FilterRandomAlignment(Filter):
   def _process(self):
     self.input["cutoff"] = "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_stats/cutoff.txt"
     self.cmds.append(
-      f"python {workflow.basedir}/scripts/filter_by_as.py --min-alignment-score `cat {{input.cutoff:q}}` {{input.bam:q}} > {{output.bam:q}}")
+      f"python {workflow.basedir}/scripts/filter_by_as.py --min-alignment-score `sed -n '2p' {{input.cutoff:q}}` {{input.bam:q}} > {{output.bam:q}}")
 
     return True
 

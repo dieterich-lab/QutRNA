@@ -240,6 +240,12 @@ def _aggregate_stats_input(wildcards):
       df = TBL.loc[[sample]]
       for row in df.itertuples(index=False):
         t2fnames[_aggregate_stats_helper("mapped-rev", sample, row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~rev/{row.base_calling}_stats/{wildcards.feature}.txt"
+  elif wildcards.feature == "cutoff" and READS == "fastq":
+    t2fnames = {}
+    for sample in SAMPLES:
+      df = TBL.loc[[sample]]
+      for row in df.itertuples(index=False):
+        t2fnames[_aggregate_stats_helper("mapped",sample,row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt"
   else:
     t2fnames = _aggregate_stats_general_input(wildcards)
 
@@ -255,12 +261,12 @@ def _aggregate_stats_general_input(wildcards):
       if hasattr(row, "bam"):
         t2fnames[_aggregate_stats_helper("raw", sample, row)] = f"data/bam/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt"
       elif hasattr(row, "fastq"):
-        t2fnames[_aggregate_stats_helper("raw", sample, row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~fwd/{row.base_calling}_stats/{wildcards.feature}.txt"
+        t2fnames[_aggregate_stats_helper("mapped", sample, row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~fwd/{row.base_calling}_stats/{wildcards.feature}.txt"
       else:
         raise Exception(f"READS must be ('bam' or 'fastq')")
 
       for read_type in FILTERS_APPLIED:
-        t2fnames[_aggregate_stats_helper("raw", sample, row)] = f"results/bam/filtered-{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt"
+        t2fnames[_aggregate_stats_helper(read_type, sample, row)] = f"results/bam/filtered-{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt"
 
   return t2fnames
 

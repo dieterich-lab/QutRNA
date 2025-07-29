@@ -55,4 +55,5 @@ if (length(unique(df$base_calling)) == 1) {
 }
 
 n <- df$read_type |> unique() |> length()
-ggsave(opts$options$output, p) # TODO, width = max(12, n * 1.5), height = 8)
+ggsave(opts$options$output, p)
+ggsave(paste0(opts$options$output, ".test.pdf"), p, width = max(12, n * 1.5), height = 8) # TODO

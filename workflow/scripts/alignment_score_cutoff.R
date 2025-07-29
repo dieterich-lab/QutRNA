@@ -85,7 +85,12 @@ cutoff <- df_curve[idx[length(idx)], 1]
 if (as.character(cutoff) == "Inf") {
  stop("cutoff cannot be 'Inf'")
 }
-write(cutoff, file = opts$options$cutoff)
+write.table(
+  data.frame(cutoff = cutoff),
+  opts$options$cutoff,
+  row.names = FALSE,
+  col.names = TRUE,
+  sep = "\t")
 
 annotation <- data.frame(
   x = cutoff,

@@ -63,7 +63,6 @@ def _plot_heatmap_input(_):
 
   return d
 
-# TODO tRNA
 rule plot_heatmap:
   input: unpack(_plot_heatmap_input)
   output: directory("results/plots/cond1~{COND1}/cond2~{COND2}/{plot_id}/bam~{bam_type}")
@@ -132,8 +131,9 @@ rule plot_threshold_summary:
   params: bam_types=",".join(["mapped", "mapped-rev"])
   shell: """
     Rscript {workflow.basedir}/scripts/plot_threshold_summary.R \
-         --type {params.bam_types} \
-         --cutoff {input.cutoff} \
-         --output {output:q} {input:q} \
+         --type {params.bam_types:q} \
+         --cutoff {input.cutoff:q} \
+         --output {output:q} \
+         {input.score:q} \
          2> {log:q}
   """

@@ -3,7 +3,7 @@ import pysam
 
 
 def uniform_cigar(reads):
-    cigar = reads[0].cigarstring # TODO Hard and Soft clipping
+    cigar = reads[0].cigarstring
     for read in reads:
         if cigar != read.cigarstring:
             return False
