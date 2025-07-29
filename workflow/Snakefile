@@ -113,7 +113,7 @@ def target_trna_plots():
     cond2 = conds["cond2"]
 
     dname =  "results/plots/cond1~{cond1}/cond2~{cond2}/{plot_id}/bam~{bam_type}"
-    for plot in config["plots"]:
+    for plot in config["heatmap_plots"]:
       targets.append(
           expand(dname,
                  cond1=cond1, cond2=cond2,
@@ -132,12 +132,17 @@ def target_all():
   return targets
 
 
-# TODO add more feature plots
 def target_read_feature_plots():
   targets = []
+  # default overview plots of read features
   types = ["condition", "sample", "subsample"]
   targets.extend(expand("results/plots/read_count/{type}.pdf", type=types))
   targets.extend(expand("results/plots/read_length/{type}.pdf", type=types))
+  # custom read feature specific plots
+  for feature in ["read_length", "read_count"]:
+    for plot in config.get(f"{feature}_plots", []):
+      targets.extend(f"results/plots/{feature}/custom/{plot.id}.pdf")
+
   if READS == "fastq":
     targets.extend(expand("results/plots/alignment/threshold_summary.pdf"))
 
@@ -159,7 +164,7 @@ def target_info():
 ###############################################################################
 # possible targets for snakemake
 ###############################################################################
-# defaul rule
+# default rule
 rule all:
   input: target_all() + target_info() + target_read_feature_plots()
 
@@ -172,11 +177,7 @@ rule sprinzl:
   input: target_sprinzl() + target_info()
 
 
-rule trna_plots:
-  input: target_trna_plots() + target_info()
-
-
-rule read_count_plots:
+rule read_feature_plots:
   input: target_read_feature_plots() + target_info()
 
 

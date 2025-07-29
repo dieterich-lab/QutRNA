@@ -1,25 +1,36 @@
+from abc import ABC
 from snakemake.io import temp, unpack
 
 global READS
 global REF_FASTA
 
+# Container for applied filters (filter name).
 FILTERS_APPLIED = []
 
-class Filter:
 
+class Filter(ABC):
+  """
+  Represents a filter class that is successively applied on BAM files.
+  """
+
+  # container for chain of BAM output files.
   OUTPUT = []
 
   def __init__(self, filter_name):
     self.filter_name = filter_name
+    # add more dependencies if necessary
     self.input = {
       "bam": self.OUTPUT[-1],
       "bai": self.OUTPUT[-1] + ".bai"
     }
+    # add more output if necessary
     self.output = {
       "bam": temp(
         f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}.sorted.bam")
     }
+    # implementing class must populate this with a command that uses snakemake: input.bam, output.bam and log
     self.cmds = []
+    # paramters to be populated to shell command
     self.params = {}
 
   def process(self) -> bool:
@@ -77,6 +88,7 @@ class FilterSamtools(Filter):
     if self.config["filter"]:
       self.params["filter"] = self.config["filter"]
       self.cmds.append(f"samtools view {{params.filter}} -b {input_}")
+      # any subsequent command will use the pipe and stdin
       input_ = "/dev/stdin"
 
     if "calmd" in config and config["calmd"]:
@@ -84,6 +96,7 @@ class FilterSamtools(Filter):
       self.cmds.append(f"samtools calmd -b {input_}")
 
     if self.cmds:
+      # if any commands defined, add the output redirect
       self.cmds[-1] = f"{self.cmds[-1]} > {{output.bam:q}}"
 
     return self.cmds
@@ -164,28 +177,34 @@ class FilterAdapterOverlap(Filter):
       return False
 
     self.params["opts"] = opts
+    # FIXME gzip
     self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt.gzip"
     self.cmds.append(
       f"python {workflow.basedir}/scripts/read_overlap.py --fasta {{input.ref_fasta}} {{params.opts}} --stats {{output.stats:q}} {{input.bam:q}} > {{output.bam:q}}")
 
     return True
 
+
+# Starting BAMs for filtering pipeline.
+# Depends on read input BAMs or FASTQ.
 if READS == "bam":
   Filter.OUTPUT.append("data/bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam")
 elif READS == "fastq":
   Filter.OUTPUT.append("results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~fwd/{BC}.sorted.bam")
 
+
+# apply filters as defined in the config
 if "filter" in config:
   _FILTERS = {i.filter_name: i for i in [c() for c in Filter.__subclasses__()]}
   for _filter_name in config["filter"]:
     _FILTERS[_filter_name].create_rule()
 
-def _filter_final_input(_):
-  return Filter.OUTPUT[-1]
 
+# Final BAMs coorespond to last filter output.
+# Intermediate BAMs are temporary.
 rule filter_final:
-  input: _filter_final_input
+  input: lambda wildcards: Filter.OUTPUT[-1]
   output: "results/bam/final/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam"
   shell: """
-    cp {input} {output}
+    cp {input:q} {output:q}
   """

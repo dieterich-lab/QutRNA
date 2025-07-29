@@ -59,6 +59,7 @@ def _plot_heatmap_input(_):
   if "sprinzl" in pep.config["qutrna2"]:
     d["sprinzl"] = SPRINZL
 
+  # FIXME
   d["max_scores"] = "results/jacusa2/max_scores.tsv"
 
   return d
@@ -77,12 +78,11 @@ rule plot_heatmap:
           --bam_type {wildcards.bam_type:q} \
           --max_scores {input.max_scores:q} \
           --ref_fasta {input.fasta:q} \
-          --output_dir {output:q} {input.scores:q} \
-          {params.opts} ) 2> {log:q}
+          --output_dir {output:q} \
+          {params.opts} \
+          {input.scores:q} \
+          ) 2> {log:q}
   """
-
-
-# TODO precision-recal cutoff alignment score
 
 rule plot_read_count:
   input: "results/stats/read_count.txt"
@@ -92,6 +92,18 @@ rule plot_read_count:
   shell: """
     Rscript {workflow.basedir}/scripts/plot_read_count.R \
          --type {wildcards.type} \
+         --output {output:q} {input:q} \
+         2> {log:q}
+  """
+rule plot_read_count_custom:
+  input: "results/stats/read_count.txt"
+  output: "results/plots/read_count/custom/{plot_id}.pdf"
+  conda: "qutrna2"
+  log: "logs/plot/read_count_custom/{plot_id}.log"
+  params: opts=lambda wildcards: [plot.opts for plot in config["read_count_plots"] if plot["id"] == wildcards.plot_id][0]
+  shell: """
+    Rscript {workflow.basedir}/scripts/plot_read_count.R \
+         {params.opts} \
          --output {output:q} {input:q} \
          2> {log:q}
   """
@@ -108,8 +120,21 @@ rule plot_read_length:
          --output {output:q} {input:q} \
          2> {log:q}
   """
+rule plot_read_length_custom:
+  input: "results/stats/samtools_RL.txt"
+  output: "results/plots/read_length/custom/{plot_id}.pdf"
+  conda: "qutrna2"
+  log: "logs/plot/read_length_custom/{plot_id}.log"
+  params: opts=lambda wildcards: [plot.opts for plot in config["read_length_plots"] if plot["id"] == wildcards.plot_id][0]
+  shell: """
+    Rscript {workflow.basedir}/scripts/plot_read_length.R \
+         {params.opts} \
+         --output {output:q} {input:q} \
+         2> {log:q}
+  """
 
 
+# TODO check
 rule plot_multimapper:
   input: "results/stats/multimapper.txt"
   output: "results/plots/multimapper.pdf"
