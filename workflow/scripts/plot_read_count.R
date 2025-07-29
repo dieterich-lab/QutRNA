@@ -5,6 +5,12 @@ library(ggplot2)
 library(scales)
 library(optparse)
 
+
+# TODO
+# number of reads 
+# random_alignment and samtools
+# FIX pass and fail for subsample
+
 option_list <- list(
   make_option(c("-t", "--type"),
               type = "character",
@@ -18,6 +24,7 @@ option_list <- list(
 opts <- parse_args(
   OptionParser(option_list = option_list),
   # FIXME remove c("--type", "sample", "--output", "~/tmp/test2.pdf", "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test1/results/stats/read_count.txt"),
+  c("--type", "subsample", "--output", "~/tmp/test2.pdf", "~/scrap/qutrna/stats/read_count_pass_fail.txt"),
   positional_arguments = TRUE
 )
 
@@ -36,20 +43,21 @@ df <- df |>
 p <- df |>
   ggplot(aes(x = read_type, y = reads, fill = !!sym(opts$options$type))) +
   xlab("read type") +
-  ylab("reads") +
+  ylab("read count") +
   guides(fill = guide_legend(opts$options$type)) +
   scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6)) +
   geom_col(position = "dodge") +
   coord_flip() +
   theme_bw() +
   theme(legend.position = "bottom",
-        text = element_text(size = 18),
-        strip.text.y.right = element_text(angle = 0))
+        text = element_text(size = 18))
+        
 
 if (length(unique(df$base_calling)) == 1) {
   p <- p +
-    facet_grid(rows = vars(!!sym(opts$options$type)),
-               labeller = function(...) { return(label_both(sep = ":\n", ...)) })
+    facet_wrap(vars(!!sym(opts$options$type)),
+               ncol = 1,
+               labeller = function(...) { return(label_both(sep = ": ", ...)) })
 } else {
   p <- p +
     facet_grid(rows = vars(!!sym(opts$options$type)),
@@ -58,4 +66,4 @@ if (length(unique(df$base_calling)) == 1) {
 }
 
 # TODO width, height?
-ggsave(opts$options$output, p, width = 8, height = 6)
+# ggsave(opts$options$output, p, width = 8, height = 6)
