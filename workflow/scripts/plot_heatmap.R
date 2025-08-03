@@ -1,19 +1,22 @@
 #!/usr/bin/env Rscript
 
-# Plot JACUSA2 score and existing modification info as a heatmap
+# Plot JACUSA2 score and existing modification info as a heatmap)
+options(error = function() traceback(3))
 
 library(optparse)
 library(ggplot2)
 library(patchwork)
+library(magrittr)
 library(dplyr)
 
 source(file.path(Sys.getenv("QUTRNA2"), "scripts", "utils.R"))
-options(error = function() traceback(3))
+
+BASE_SIZE <- 9
 
 args <- c("--condition1=WT",
           "--condition2=DNMT2",
           "--score_column=MDI_subsampled",
-          "--split=all",
+          "--group=all",
           "--position_column=sprinzl",
           "--ref_fasta=/beegfs/prj/tRNA_Francesca_Tuorto/index/all_human_tRNAs_v2_linkerNovoa_final.fa",
           "--hide_varm",
@@ -25,8 +28,8 @@ args <- c("--condition1=WT",
           #"--mark_positions=34",
           #"--amino_acids=Asp,Asn,Tyr,Gln,Glu,His,Leu,Thr,Gly,Val",
           #"--amino_acids=Asn", # Asp,Asn,Tyr,Gln,Glu,His,Leu,Thr,Gly,Val",
-          "--five_adapter=23",
-          "--three_adapter=33",
+          "--five_adapter=24",
+          "--three_adapter=32",
           "--show_ref",
           #"--harmonize_scaling=-1",
           "--sprinzl=/beegfs/homes/mpiechotta/git/QutRNA/data/euk_sprinzl.txt",
@@ -34,8 +37,124 @@ args <- c("--condition1=WT",
           "--remove_prefix=Homo_sapiens_",
           "/beegfs/prj/tRNA_Francesca_Tuorto/data/HCT116_tRNA_RNA004/2_biolrepl/output-strict-basq1//results/jacusa2/cond1~WT/cond2~DNMT2/scores_sprinzl.tsv")
 
+option_list <- list(
+  make_option(c("--score_column"),
+              type = "character",
+              default = "MDI",
+              help = "Score column to use"),
+  make_option(c("--condition1"),
+              type = "character",
+              default = "condition 1",
+              help = "Condition 1"),
+  make_option(c("--condition2"),
+              type = "character",
+              default = "condition 2",
+              help = "Condition 2"),
+  make_option(c("--output_dir"),
+              type = "character",
+              help = "Output"),
+  make_option(c("--five_adapter"),
+              type = "numeric",
+              help = "Ignore positions on the 5' side"),
+  make_option(c("--position_column"),
+              type = "character",
+              default = "seq_position",
+              help = "Use column as coordinates, default: seq_position"),
+  make_option(c("--three_adapter"),
+              type = "numeric",
+              help = "Ignore positions on the 3' side"),
+  make_option(c("--ref_fasta"),
+              type = "character",
+              help = "Filename to sequence header"),
+  make_option(c("--trna_annotation"),
+              type = "character",
+              help = "Filename to tRNA annotation"),
+  make_option(c("--title"),
+              type = "character",
+              help = "Title of the plot"),
+  make_option(c("--sprinzl"), # _mapping _info
+              type = "character",
+              help = "Path to sprinzl file with labels"),
+  make_option(c("--hide_varm"),
+              action = "store_true",
+              default = FALSE,
+              help = "Hide variable arm coordinates"),
+  make_option(c("--hide_mods"),
+              action = "store_true",
+              default = FALSE,
+              help = "Hide mods"),
+  make_option(c("--sort_by"),
+              default = "trna",
+              help = "Sort by 'coverage' or 'tRNA', default: trna"),
+  make_option(c("--show_introns"),
+              action = "store_true",
+              default = FALSE,
+              help = "Show intron positions"),
+  make_option(c("--estimate_coverage"),
+              action = "store_true",
+              default = FALSE,
+              help = "Show coverage"),
+  make_option(c("--debug"),
+              action = "store_true",
+              default = FALSE,
+              help = "Show debug info"),
+  make_option(c("--show_ref"),
+              action = "store_true",
+              default = FALSE,
+              help = "Show reference base"),
+  make_option(c("--no_crop"),
+              action = "store_false",
+              default = TRUE,
+              help = "Do  crop pdf"),
+  make_option(c("--modmap"),
+              type = "character",
+              help = "File mapping of modomics short name to abbrevations"),
+  make_option(c("--group"),
+              type = "character",
+              help = "Group plots by: 'isodecoder', 'isoacceptor', 'all'"),
+  make_option(c("--remove_prefix"),
+              type = "character",
+              default = "",
+              help = "Remove prefix from tRNA label"),
+  make_option(c("--flag_positions"),
+              type = "character",
+              default = NULL,
+              help = "Flag positions, e.g.: tRNA:position, use ','"),
+  make_option(c("--amino_acids"),
+              type = "character",
+              default = NULL,
+              help = "tRNAs to show, e.g.: tRNA, use ','"),
+  make_option(c("--mark_positions"),
+              type = "character",
+              default = NULL,
+              help = "Mark specific positions in plot, e.g.: tRNA:position, use ','"),
+  make_option(c("--min_scores"),
+              type = "numeric",
+              default = NULL,
+              help = "Show positions with minimal score"),
+  make_option(c("--max_scores"),
+              type = "character",
+              help = "File to max scores"),
+  make_option(c("--harmonize_scaling"),
+              type = "numeric",
+              help = "Set to -1 to harmonize scaling between all plots; or set to some value."),
+  make_option(c("--bam_type"),
+              type = "character",
+              help = "Set to the bam type used.",
+              default = ""),
+  make_option(c("--positions"),
+              type = "character",
+              default = NULL,
+              help = "Positions to show, use ','")
+)
 
-BASE_SIZE <- 9 # TODO make this an argument
+## parse CLI
+
+opts <- parse_args(
+  OptionParser(option_list = option_list),
+  #args = args,
+  positional_arguments = TRUE
+)
 
 # FIXES - https://github.com/krassowski/complex-upset/issues/158
 guide_axis_label_trans <- function(label_trans = identity, ...) {
@@ -45,15 +164,12 @@ guide_axis_label_trans <- function(label_trans = identity, ...) {
   axis_guide
 }
 
-
 guide_train.guide_axis_trans <- function(x, ...) {
   trained <- NextMethod()
   trained$key$.label <- x$label_trans(trained$key$.label)
   trained
 }
 
-
-# TODO
 estimate_coverage_info <- function(df, condition1, condition2) {
   coverage_summary <- df |>
     select("trna", starts_with("reads_")) |>
@@ -82,61 +198,10 @@ estimate_coverage_info <- function(df, condition1, condition2) {
   return(coverage_summary |> select(-all_of("condition_i")))
 }
 
-remove_missing_positions <- function(df) {
-  tbl <- table(df$position, is.na(df$ref))
-  if ("FALSE" %in% colnames(tbl)) {
-    tbl[, "FALSE"] == 0
-    i <- tbl[, "FALSE"] == 0
-    if (any(i)) {
-      missing_positions <- rownames(tbl[i, ])
-      df <- df |>
-        filter(!position %in% missing_positions)
-    }
-  }
-
-  return(df)
-}
 
 
-add_missing_values <- function(df, cols = c("trna_label", "position")) {
-  fill <- list("exceed_max_score" = FALSE,
-               "mark_position" = FALSE,
-               "flag_position" = FALSE)
-  if (!is.null(df$mod_label)) {
-    i <- is.na(df$mod_label)
-    if (any(i)) {
-      df[i, "mod_label"] <- ""
-    }
-  }
 
-  df <- tidyr::complete(df, !!! rlang::syms(cols), fill = fill)
-
-  # FIX reference
-  i <- is.na(df$ref)
-  if (any(i)) {
-    df[i, "ref"] <- ""
-  }
-  
-  # trna
-  # amino_acid
-  # anti_codon
-
-  fixes <- df |>
-    select(trna_label, trna, strand, amino_acid, anti_codon) |>
-    filter(!if_any(everything(), is.na)) |>
-    distinct()
-  df <- df |>
-    select(-c(trna, strand, amino_acid, anti_codon)) |>
-    inner_join(
-      fixes,
-      by = join_by(trna_label))
-
-  df
-}
-
-###
-# Plots
-###
+## plots
 
 # debug code
 # plot.background = element_rect(fill = "yellow")
@@ -253,6 +318,7 @@ plot_heatmap <- function(df, xlab = "position", harmonize_scaling = NULL, title 
   p
 }
 
+
 plot_combined <- function(df, coverage_summary, plot_args) {
   ncol <- 1
   widths <- c(NA)
@@ -310,19 +376,9 @@ deduce_width <- function(df) {
 }
 
 
+## group
 
-save_plot <- function(p, output, width = NA, height = NA) {
-  ggsave(output, p, width = width, height = height, limitsize = FALSE)
-  if (!opts$options$no_crop) {
-    knitr::plot_crop(output, quiet = FALSE)
-  }
-}
-
-####
-# Split and output tRNAs isoacceptor, isodecoder, or all
-####
-
-split_isoacceptor <- function(df, coverage_summary, output_dir, plot_args, process_args) {
+group_isoacceptor <- function(df, coverage_summary, output_dir, plot_args, process_args) {
   # check if no amino_acid or anticodon
   i <- is.na(df$amino_acid) | df$amino_acid == ""
   if (any(i)) {
@@ -360,7 +416,7 @@ split_isoacceptor <- function(df, coverage_summary, output_dir, plot_args, proce
   }
 }
 
-split_isodecoder <- function(df, coverage_summary, output_dir, plot_args, process_args) {
+group_isodecoder <- function(df, coverage_summary, output_dir, plot_args, process_args) {
   # check if no amino_acid or anticodon
   i <- is.na(df$anti_codon) | df$anti_codon == ""
   if (any(i)) {
@@ -399,8 +455,7 @@ split_isodecoder <- function(df, coverage_summary, output_dir, plot_args, proces
     }
   }
 }
-
-split_all <- function(df, coverage_summary, output_dir, plot_args, process_args) {
+group_all <- function(df, coverage_summary, output_dir, plot_args, process_args) {
   if (!is.null(process_args$sort_by_callback)) {
     res <- process_args$sort_by_callback(df, coverage_summary)
     df <- res$df
@@ -422,9 +477,8 @@ split_all <- function(df, coverage_summary, output_dir, plot_args, process_args)
   }
 }
 
-##
+
 ## CLI
-##
 
 # built arguments for processing score and coverage data frame
 get_process_args <- function(opts) {
@@ -471,12 +525,7 @@ get_plot_args <- function(df, opts) {
   } else if (opts$options$coverage_info) {
     coverage_xlab <- "reads"
   }
-
-  # TODO
-  NULL -> no max score
-  -1 -> within contrast
-  -2 -> per contrast, all read_types
-  -3 -> overall, all read_types
+  
   harmonize_scaling <- opts$options$harmonize_scaling
   if (!is.null(harmonize_scaling)) {
     max_scores <- read.table(opts$options$max_scores, header = TRUE, sep = "\t")
@@ -502,122 +551,7 @@ get_plot_args <- function(df, opts) {
   ))
 }
 
-option_list <- list(
-  make_option(c("--score_column"),
-              type = "character",
-              default = "MDI",
-              help = "Score column to use"),
-  make_option(c("--condition1"),
-              type = "character",
-              default = "condition 1",
-              help = "Condition 1"),
-  make_option(c("--condition2"),
-              type = "character",
-              default = "condition 2",
-              help = "Condition 2"),
-  make_option(c("--output_dir"),
-              type = "character",
-              help = "Output"),
-  make_option(c("--five_adapter"),
-              type = "numeric",
-              help = "Ignore positions on the 5' side"),
-  make_option(c("--position_column"),
-              type = "character",
-              default = "seq_position",
-              help = "Use column as coordinates, default: seq_position"),
-  make_option(c("--three_adapter"),
-              type = "numeric",
-              help = "Ignore positions on the 3' side"),
-  make_option(c("--ref_fasta"),
-              type = "character",
-              help = "Filename to sequence header"),
-  make_option(c("--title"),
-              type = "character",
-              help = "Title of the plot"),
-  make_option(c("--sprinzl"), # _mapping _info
-              type = "character",
-              help = "Path to sprinzl file with labels"),
-  make_option(c("--hide_varm"),
-              action = "store_true",
-              default = FALSE,
-              help = "Hide variable arm coordinates"),
-  make_option(c("--hide_mods"),
-              action = "store_true",
-              default = FALSE,
-              help = "Hide mods"),
-  make_option(c("--sort_by"),
-              default = "trna",
-              help = "Sort by 'coverage' or 'tRNA', default: trna"),
-  make_option(c("--show_introns"),
-              action = "store_true",
-              default = FALSE,
-              help = "Show intron positions"),
-  make_option(c("--estimate_coverage"),
-              action = "store_true",
-              default = FALSE,
-              help = "Show coverage"),
-  make_option(c("--debug"),
-              action = "store_true",
-              default = FALSE,
-              help = "Show debug info"),
-  make_option(c("--show_ref"),
-              action = "store_true",
-              default = FALSE,
-              help = "Show reference base"),
-  make_option(c("--no_crop"),
-              action = "store_false",
-              default = TRUE,
-              help = "Do  crop pdf"),
-  make_option(c("--modmap"),
-              type = "character",
-              help = "File mapping of modomics short name to abbrevations"),
-  make_option(c("--split"),
-              type = "character",
-              help = "Split plots by: 'isodecoder', 'isoacceptor', 'extended', 'all'"),
-  make_option(c("--remove_prefix"),
-              type = "character",
-              default = "",
-              help = "Remove prefix from tRNA label"),
-  make_option(c("--flag_positions"),
-              type = "character",
-              default = NULL,
-              help = "Flag positions, e.g.: tRNA:position, use ','"),
-  make_option(c("--amino_acids"),
-              type = "character",
-              default = NULL,
-              help = "tRNAs to show, e.g.: tRNA, use ','"),
-  make_option(c("--mark_positions"),
-              type = "character",
-              default = NULL,
-              help = "Mark specific positions in plot, e.g.: tRNA:position, use ','"),
-  make_option(c("--min_scores"),
-              type = "numeric",
-              default = NULL,
-              help = "Show positions with minimal score"),
-  make_option(c("--max_scores"),
-              type = "character",
-              help = "File to max scores"),
-  make_option(c("--harmonize_scaling"),
-              type = "numeric",
-              help = "Set to -1 to harmonize scaling between all plots; or set to some value."),
-  make_option(c("--bam_type"),
-              type = "character",
-              help = "Set to the bam type used.",
-              default = ""),
-  make_option(c("--positions"),
-              type = "character",
-              default = NULL,
-              help = "Positions to show, use ','")
-)
-
-## parse CLI
-
-opts <- parse_args(
-  OptionParser(option_list = option_list),
-  # args = args,
-  positional_arguments = TRUE
-)
-
+####
 # parse options and check if valid
 if (opts$options$debug) {
   options(error = traceback) # add debug options
@@ -648,14 +582,15 @@ if (!is.null(opts$options$sprinzl)) {
 if (!is.null(opts$options$modmap)) {
   stopifnot(file.exists(opts$options$modmap))
 }
+if (!is.null(opts$options$trna_annotation)) {
+  stopifnot(file.exists(opts$options$trna_annotation))
+}
 
 stopifnot(opts$options$position_column %in% c("sprinzl", "seq_position"))
 
 if (!is.null(opts$options$mod_abbrevs)) {
   stopifnot(!is.null(opts$options$modmap))
 }
-
-##
 
 # read process JACUSA2 scores
 df <- read.table(opts$args, sep = "\t", header = TRUE)
@@ -773,14 +708,14 @@ df <- add_missing_values(df)
 #coverage_summary <- add_trna_details(coverage_summary, col = "trna")
 
 # split data, plot, and save
-if (opts$options$split == "isoacceptor") {
-  split_isoacceptor(df, coverage_summary, opts$options$output_dir, get_plot_args(df, opts), get_process_args(opts))
-} else if (opts$options$split == "isodecoder") {
-  split_isodecoder(df, coverage_summary, opts$options$output_dir, get_plot_args(df, opts), get_process_args(opts))
-} else if (opts$options$split == "all") {
-  split_all(df, coverage_summary, opts$options$output_dir, get_plot_args(df, opts), get_process_args(opts))
+if (opts$options$group == "isoacceptor") {
+  group_isoacceptor(df, coverage_summary, opts$options$output_dir, get_plot_args(df, opts), get_process_args(opts))
+} else if (opts$options$group == "isodecoder") {
+  group_isodecoder(df, coverage_summary, opts$options$output_dir, get_plot_args(df, opts), get_process_args(opts))
+} else if (opts$options$group == "all") {
+  group_all(df, coverage_summary, opts$options$output_dir, get_plot_args(df, opts), get_process_args(opts))
 } else {
-  stop("Unknown split: ", opts$options$split)
+  stop("Unknown group: ", opts$options$group)
 }
 
 # print additional debug info

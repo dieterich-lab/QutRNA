@@ -18,7 +18,7 @@ rule parasail_gpu_assisted:
   threads: 1
   params:
     gpu_opts=config["gpu"]["opts"],
-    min_aln_score=config["params"]["min_aln_score"],
+    min_aln_score=config["alignment"]["min_aln_score"],
     pre=config["gpu"]["pre"]
   shell: """
     (
@@ -47,7 +47,8 @@ rule parasail_gpu_assisted_postprocess:
     (
       samtools view -F 4 -b {input.sam:q} | \
       samtools calmd /dev/stdin {input.ref:q} | \
-      python {workflow.basedir}/scripts/add_NH.py /dev/stdin | \
+      samtools sort -n -O bam /dev/stdin | \
+      python {workflow.basedir}/scripts/bam_utils.py add-hits /dev/stdin | \
       samtools sort -O bam -o {output:q} /dev/stdin
     ) 2> {log:q}
   """

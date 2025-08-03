@@ -28,7 +28,7 @@ properties:
   config:
     type: object
     properties:
-      qutrna:
+      qutrna2:
         type: object
         properties:
           cm:
@@ -62,6 +62,13 @@ properties:
           linker3:
             type: integer
             description: Length of 3' linker
+          trna_annotation:
+            type: string
+          ignore_trnas:
+            type: array
+            uniqueItems: true
+            items:
+              type: string
           contrasts:
             type: array
             properties:
@@ -86,6 +93,6 @@ properties:
           - linker5
           - linker3
     required:
-      - qutrna
+      - qutrna2
 required:
   - samples

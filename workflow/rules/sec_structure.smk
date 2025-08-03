@@ -6,28 +6,12 @@ global REF_FILTERED_TRNAS_FASTA
 global SPRINZL
 
 
-rule ss_transform:
-  input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_seq.tsv",
-         sprinzl=SEQ_TO_SPRINZL
-  output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_sprinzl.tsv"
-  conda: "qutrna2"
-  log: "logs/ss/transform/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.log"
-  params: linker5=pep.config["qutrna2"]["linker5"]
-  shell: """
-    python {workflow.basedir:q}/scripts/transform.py \
-        --sprinzl {input.sprinzl:q} \
-        --output {output:q} \
-        --linker5 {params.linker5} \
-        {input.jacusa2:q} 2> {log:q}
-  """
-
-
 if SPRINZL_MODE == "cm":
   global CM
 
   rule cmalign_run:
     input: cm=CM,
-           fasta=REF_FILTERED_TRNAS_FASTA
+      fasta=REF_FILTERED_TRNAS_FASTA
     output: "results/cmalign/align.stk"
     log: "logs/cmalign/run.log"
     threads: 1
@@ -43,14 +27,14 @@ if SPRINZL_MODE == "cm":
    """
 
 
-  rule ss_consensus_add_sprinzl:
+  rule ss_annotate_consensus:
     input: stk="results/cmalign/align.stk",
            sprinzl=SPRINZL
-    output: "results/ss_consensus_to_sprinzl.tsv"
+    output: "results/ss/consensus_annotated.tsv"
     conda: "qutrna2"
-    log: "logs/ss/ss_consensus_add_sprinzl.log"
+    log: "logs/ss/annotate_consensus.log"
     shell: """
-      python {workflow.basedir}/scripts/ss_consensus_add_sprinzl.py \
+      python {workflow.basedir}/scripts/sprinzl_utils.py annotate-consensus \
         --output {output:q} \
         --sprinzl {input.sprinzl:q} \
         {input.stk:q} \
@@ -58,25 +42,45 @@ if SPRINZL_MODE == "cm":
     """
 
 
-  rule ss_seq_to_sprinzl:
+  _SS_SEQ_TO_SPRINZL = "results/ss/seq_to_sprinzl.tsv"
+  rule ss_map_seq_to_sprinzl:
     input: align="results/cmalign/align.stk",
-           ss_to_sprinzl="results/ss_consensus_to_sprinzl.tsv"
-    output: "results/seq_to_sprinzl.tsv"
+           consensus_annotated="results/ss/consensus_annotated.tsv"
+    output: _SS_SEQ_TO_SPRINZL
     conda: "qutrna2"
-    log: "logs/ss/seq_to_sprinzl.log"
+    log: "logs/ss/map_seq_to_sprinzl.log"
     shell: """
-      python {workflow.basedir}/scripts/seq_to_sprinzl.py \
+      python {workflow.basedir}/scripts/sprinzl_utils.py map-seq-sprinzl \
         --output {output:q} \
-        {input.ss_to_sprinzl:q} \
+        --cons-ss-annotation {input.consensus_annotated:q} \
         {input.align:q} \
         2> {log:q}
     """
 
+else:
+  _SS_SEQ_TO_SPRINZL = "data/seq_to_sprinzl.tsv"
 
-  rule ss_seq_to_filtered_sprinzl:
-    input: "results/seq_to_sprinzl.tsv"
-    output: "results/seq_to_sprinzl_filtered.tsv"
-    run:
-      df = pd.read_csv(input[0], sep="\t")
-      df = df[df["sprinzl"] != "-"]
-      df.to_csv(output[0], sep="\t", index=False, quoting=False)
+########################################################################################################################
+
+rule ss_seq_to_sprinzl_final:
+  input: _SS_SEQ_TO_SPRINZL
+  output: SEQ_TO_SPRINZL
+  run:
+    df = pd.read_csv(input[0],sep="\t")
+    df = df[df["sprinzl"] != "-"]
+    df.to_csv(output[0],sep="\t",index=False,quoting=False)
+
+rule ss_transform:
+  input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_seq.tsv",
+         seq_sprinzl=SEQ_TO_SPRINZL
+  output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_sprinzl.tsv"
+  conda: "qutrna2"
+  log: "logs/ss/transform/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.log"
+  params: linker5=pep.config["qutrna2"]["linker5"]
+  shell: """
+    python {workflow.basedir:q}/scripts/sprinzl_utils.py transform \
+        --sprinzl {input.seq_sprinzl:q} \
+        --output {output:q} \
+        --linker5 {params.linker5} \
+        {input.jacusa2:q} 2> {log:q}
+  """

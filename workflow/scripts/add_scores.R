@@ -224,8 +224,6 @@ read_result <- function(file, tmpdir = tempdir(), showProgress = FALSE, ...) {
 option_list <- list(
   optparse::make_option(c("-s", "--stat"),
                         help = "Define statistics"),
-  optparse::make_option(c("-R", "--remove"),
-                        help = "Define statistics"),
   optparse::make_option(c("-o", "--output"),
                         type = "character",
                         help = "Output")
@@ -317,7 +315,7 @@ PARSE_COLS <- list("mismatch_score" = function(r) { return(rowData(r)$score) },
                    "mean_mismatch_score_downsampled" = function(r) { return(summarise_score(r, "score_downsampled", mean)) },
                    "mean_insertion_score_downsampled" = function(r) { return(summarise_score(r, "insertion_score_downsampled", mean)) },
                    "mean_deletion_score_downsampled" = function(r) { return(summarise_score(r, "deletion_score_downsampled", mean)) })
-                   # TODO check
+                   #
                    #"mean_non_ref_ratio" = function(r) { return(summarise_ratio(r, non_ref_ratio, rowMeans)) },
                    #"mean_insertion_ratio" = function(r) { return(summarise_ratio(r, insertion_ratio, rowMeans)) } ,
                    #"mean_deletion_ratio" = function(r) { return(summarise_ratio(r, deletion_ratio, rowMeans)) })
@@ -418,14 +416,6 @@ se <- .to_se(df)
 stats <- parse_stats(opts$options$stat)
 # calculate stats and create output
 df <- parse_result(se, stats)
-
-# FIXME
-if (opts$options$remove == "True") {
-  i <- grepl("_exononly$", df$trna)
-  if (any(i)) {
-    df <- df[!i, ]
-  }
-}
 
 write.table(df,
             opts$options$output,

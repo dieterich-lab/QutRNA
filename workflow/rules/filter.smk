@@ -1,12 +1,11 @@
 from abc import ABC
-from snakemake.io import temp, unpack
+from snakemake.io import temp
 
 global READS
 global REF_FASTA
 
 # Container for applied filters (filter name).
 FILTERS_APPLIED = []
-
 
 class Filter(ABC):
   """
@@ -19,18 +18,14 @@ class Filter(ABC):
   def __init__(self, filter_name):
     self.filter_name = filter_name
     # add more dependencies if necessary
-    self.input = {
-      "bam": self.OUTPUT[-1],
-      "bai": self.OUTPUT[-1] + ".bai"
-    }
+    self.input = {}
     # add more output if necessary
     self.output = {
-      "bam": temp(
-        f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}.sorted.bam")
+      "bam": f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}.sorted.bam"
     }
     # implementing class must populate this with a command that uses snakemake: input.bam, output.bam and log
     self.cmds = []
-    # paramters to be populated to shell command
+    # parameters to be populated to shell command
     self.params = {}
 
   def process(self) -> bool:
@@ -54,11 +49,14 @@ class Filter(ABC):
 
   def create_rule(self):
     if self.process():
+      self.input["bam"] = self.OUTPUT[-1]
+      self.input["bai"] = self.input["bam"] + ".bai"
       self.OUTPUT.append(self.output["bam"])
+      self.output["bam"] = temp(self.output["bam"])
       FILTERS_APPLIED.append(self.filter_name)
       rule:
         name: f"filter_{self.filter_name}"
-        input: unpack(lambda _: self.input)
+        input: **self.input
         output: **self.output
         benchmark: f"benchmarks/filter/{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}.txt"
         conda: "qutrna2"
@@ -74,7 +72,7 @@ class FilterRandomAlignment(Filter):
   def _process(self):
     self.input["cutoff"] = "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_stats/cutoff.txt"
     self.cmds.append(
-      f"python {workflow.basedir}/scripts/filter_by_as.py --min-alignment-score `sed -n '2p' {{input.cutoff:q}}` {{input.bam:q}} > {{output.bam:q}}")
+      f"python {workflow.basedir}/scripts/bam_utils.py filter --min-as `sed -n '2p' {{input.cutoff:q}}` --output {{output.bam:q}} {{input.bam:q}}")
 
     return True
 
@@ -111,7 +109,7 @@ class FilterTrimCigar(Filter):
 
     self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt"
     self.cmds.append(
-      f"python {workflow.basedir}/scripts/process_read.py --stats {{output.stats:q}} --trim-cigar {{input.bam:q}} > {{output.bam:q}}")
+      f"python {workflow.basedir}/scripts/bam_utils.py filter --stats {{output.stats:q}} --trim-cigar --output {{output.bam:q}} {{input.bam:q}}")
 
     return True
 
@@ -130,7 +128,27 @@ class FilterReadLength(Filter):
     self.params["opts"] = opts
     self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt"
     self.cmds.append(
-      f"python {workflow.basedir}/scripts/process_read.py {{params.opts:q}} {{input.bam:q}} > {{output.bam}}")
+      f"python {workflow.basedir}/scripts/bam_utils.py filter --stats {{output.stats:q}} {{params.opts}} --output {{output.bam:q}} {{input.bam:q}}")
+
+    return True
+
+
+class FilterAlignmentLength(Filter):
+  def __init__(self):
+    super().__init__("alignment_length")
+
+  def _process(self):
+    opts = []
+    for k in ("min", "max"):
+      if k in self.config and self.config[k]:
+        opts.append(f"--{k}-alignment-length {self.config[k]}")
+    if not opts:
+      return False
+
+    self.params["opts"] = opts
+    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt"
+    self.cmds.append(
+      f"python {workflow.basedir}/scripts/bam_utils.py filter --stats {{output.stats:q}} {{params.opts}} --output {{output.bam:q}} {{input.bam:q}}")
 
     return True
 
@@ -143,8 +161,9 @@ class FilterMultimapper(Filter):
     if not self.config:
       return False
 
-    self.cmds.append(
-      f"python {workflow.basedir}/scripts/remove_multimapper.py {{input.bam:q}} > {{output.bam:q}}")
+    self.cmds.append("samtools sort -n {input.bam:q}")
+    self.cmds.append(f"python {workflow.basedir}/scripts/bam_utils.py filter-multimapper /dev/stdin")
+    self.cmds.append("samtools sort -o {output.bam:q} /dev/stdin")
 
     return True
 
@@ -180,7 +199,7 @@ class FilterAdapterOverlap(Filter):
     # FIXME gzip
     self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt.gzip"
     self.cmds.append(
-      f"python {workflow.basedir}/scripts/read_overlap.py --fasta {{input.ref_fasta}} {{params.opts}} --stats {{output.stats:q}} {{input.bam:q}} > {{output.bam:q}}")
+      f"python {workflow.basedir}/scripts/bam_utils.py adapter-overlap --fasta {{input.ref_fasta}} {{params.opts}} --stats {{output.stats:q}} --output {{output.bam:q}} {{input.bam:q}}")
 
     return True
 
@@ -197,7 +216,8 @@ elif READS == "fastq":
 if "filter" in config:
   _FILTERS = {i.filter_name: i for i in [c() for c in Filter.__subclasses__()]}
   for _filter_name in config["filter"]:
-    _FILTERS[_filter_name].create_rule()
+    if config["filter"][_filter_name]["apply"]:
+      _FILTERS[_filter_name].create_rule()
 
 
 # Final BAMs coorespond to last filter output.

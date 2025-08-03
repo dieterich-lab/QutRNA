@@ -7,153 +7,6 @@ properties:
   pepfile:
     type: string
     description: Sample description
-  parasail:
-    type: object
-    properties:
-      opts:
-        type: string
-        description: Options for parasail
-        default: sw_trace_striped_sat -M 1 -X 1 -e 1 -o 1 -x -d -b 100000
-      lines:
-        type: integer
-        description: Number of lines to split FASTQ files.
-        default: 0
-    default: {}
-  gpu:
-    type: object
-    properties:
-      pre:
-        type: string
-        description: BASH code to execute before GPU-assisted alignment
-      opts:
-        type: string
-        description:
-        default: --scoring 1,-1,-1,-1 --batchsize 100000
-    default: {}
-  jacusa2:
-    type: object
-    properties:
-      jar:
-        type: string
-        default: jacusa2
-      opts:
-        type: string
-        default: -f X:reads:nonref_ratio:insertion_ratio:deletion_ratio -u DirMult:subsampleRuns=100 -m 1 -q 1 -D -i -P1 FR-SECONDSTRAND -P2 FR-SECONDSTRAND
-      min_cov:
-        type: integer
-        default: 10
-    default: {}
-  cmalign:
-    type: object
-    properties:
-      opts:
-        type: string
-        default: --notrunc --nonbanded -g
-    default: {}
-  call_filtered:
-    type: boolean
-    default: false
-  filter:
-    type: object
-    properties:
-      random_alignment:
-        type: boolean
-        default: false
-      samtools:
-        type: object
-        properties:
-          filter:
-            type: string
-          calmd:
-            type: boolean
-        default:
-          filter: -F 3328
-          calmd: true
-      read_length:
-        type: object
-        properties:
-          min:
-            type: integer
-            default: 0
-          max:
-            type: integer
-            default: 0
-        default: {}
-      trim_cigar:
-        type: boolean
-        default: false
-      multimapper:
-        type: boolean
-        default: false
-      overlap:
-        type: object
-        properties:
-          five_adapter_overlap:
-            type: number
-            default: 0
-          trna_overlap:
-            type: number
-            default: 0
-          three_adapter_overlap:
-            type: number
-            defaul: 0
-          default: {}
-    default: {}
-  params:
-    type: object
-    properties:
-      alignment:
-        type: string
-        enum: ["parasail", "gpu"]
-        default: parasail
-      precision:
-        type: number
-        description: Calibrate alignment score offset with precision
-        default: 0.999
-      min_aln_score:
-        type: integer
-        description: Minimum alignment score to considert for calibration
-        default: 10
-    default:
-    required:
-      - alignment
-      - precision
-      - min_aln_score
-  plots:
-    type: array
-    items:
-      type: object
-      properties:
-        id:
-          type: string
-        title:
-          type: string
-        trnas:
-          type: string
-          enum: ["isoacceptor", "isodecoder", "extended", "all"]
-        positions:
-          type: array
-          items:
-            type: string
-        opts:
-          type: string
-      required:
-        - id
-        - trnas
-  transform:
-    type: object
-    properties:
-      bam:
-        type: object
-        properties:
-          base_change:
-            type: string
-            enum: ["U2T", "T2U"]
-          reverse:
-            type: boolean
-            default: false
-        default: {}
-    default: {}
   include:
     type: object
     properties:
@@ -186,6 +39,212 @@ properties:
         enum: ["link", "copy"]
         default: link
     default: {}
+  transform:
+    type: object
+    properties:
+      fastq:
+        type: object
+        properties:
+          base_change:
+            type: string
+            enum: ["U2T", "T2U"]
+        default: {}
+      bam:
+        type: object
+        properties:
+          base_change:
+            type: string
+            enum: ["U2T", "T2U"]
+        default: {}
+    default: {}
+  alignment:
+    description: Use parasail or gpu for the alignment
+    type: object
+    properties:
+      precision:
+        type: number
+        description: Calibrate alignment score offset with precision
+        default: 0.999
+      min_aln_score:
+        type: integer
+        description: Minimum alignment score to considert for calibration
+        default: 10
+      method:
+        type: string
+        enum: ["parasail", "gpu"]
+        default: parasail
+    default: {}
+  parasail:
+    type: object
+    properties:
+      opts:
+        type: string
+        description: Options for parasail
+        default: sw_trace_striped_sat -M 1 -X 1 -e 1 -o 1 -x -d -b 100000
+      lines:
+        type: integer
+        description: Number of lines to split FASTQ files.
+        default: 0
+    default: {}
+  gpu:
+    type: object
+    properties:
+      pre:
+        type: string
+        description: BASH code to execute before GPU-assisted alignment
+      opts:
+        type: string
+        description: Options for tRNA-gpu-mapper
+        default: --scoring 1,-1,-1,-1 --batchsize 100000
+    default: {}
+  jacusa2:
+    type: object
+    description: Parameters for JACUSA2 variant calling
+    properties:
+      jar:
+        type: string
+        default: jacusa2
+      opts:
+        type: string
+        default: -f X:reads:nonref_ratio:insertion_ratio:deletion_ratio -u DirMult:subsampleRuns=100 -m 1 -q 1 -D -i -P1 FR-SECONDSTRAND -P2 FR-SECONDSTRAND
+      min_cov:
+        type: integer
+        default: 10
+    default: {}
+  cmalign:
+    type: object
+    properties:
+      opts:
+        type: string
+        default: --notrunc --nonbanded -g
+    default: {}
+  filter:
+    type: object
+    properties:
+      random_alignment:
+        type: object
+        properties:
+          apply:
+            type: boolean
+            default: false
+          min_aln_score:
+            type: integer
+            description: Minimum alignment score to considert for calibration
+        default: {}
+      samtools:
+        type: object
+        properties:
+          apply:
+            type: boolean
+            default: false
+          filter:
+            type: string
+          calmd:
+            type: boolean
+            default: false
+        default: {}
+      read_length:
+        type: object
+        properties:
+          apply:
+            type: boolean
+            default: false
+          min:
+            type: integer
+          max:
+            type: integer
+        default: {}
+      trim_cigar:
+        type: object
+        properties:
+          apply:
+            type: boolean
+            default: false
+        default: {}
+      multimapper:
+        type: object
+        properties:
+          apply:
+            type: boolean
+            default: false
+        default: false
+      overlap:
+        type: object
+        properties:
+          apply:
+            type: boolean
+            default: false
+          five_adapter_overlap:
+            type: number
+          trna_overlap:
+            type: number
+          three_adapter_overlap:
+            type: number
+        default: {}
+      default: {}
+  threshold_summary_plots:
+    type: object
+    properties:
+      width:
+        type: string
+      height:
+        type: string
+  record_count_plots:
+    type: array
+    items:
+      type: object
+      properties:
+        id:
+          type: string
+        opts:
+          type: string
+      required:
+        - id
+        - opts
+  read_length_plots:
+    type: array
+    items:
+      type: object
+      properties:
+        id:
+          type: string
+        opts:
+          type: string
+      required:
+        - id
+        - opts
+  heatmap_plots:
+    type: array
+    items:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        group:
+          type: string
+          enum: ["isoacceptor", "isodecoder", "all"]
+        harmonize_scaling:
+          type: string
+          default: NONE
+          pattern: ^NONE|CONTRAST|FILTER|CONTRAST_FILTER|\d+(\.\d+)?$
+        trnas:
+          type: array
+          items:
+            type: string
+        positions:
+          type: array
+          items:
+            type: string
+        opts:
+          type: string
+      required:
+        - id
+        - group
+  call_filtered:
+    type: boolean
+    default: false
 default: {}
 required:
   - pepfile

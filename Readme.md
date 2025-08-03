@@ -172,7 +172,7 @@ Plots can be added to `analysis.yaml` with custom plot options:
 plots:
   - id: <PLOT-ID>                     # [Required] name of the directory for the plot, in results/plots/<PLOT-ID>
     trnas: isoacceptor|isodecoder|all # [Required] How to group tRNA in the output
-    opts: "--sort"                    # (Optional) Command line options for plot_score.R
+    opts: "--sort"                    # (Optional) Command line options for plot_heatmap.R
                                       #            Here: sort tRNAs by median read coverage.
 [...]
 ```

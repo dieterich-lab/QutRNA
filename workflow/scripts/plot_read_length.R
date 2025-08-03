@@ -5,12 +5,6 @@ library(ggplot2)
 library(scales)
 library(optparse)
 
-# TODO
-# read_length custom plots
-# test base calling: pass, fail
-# what does samtools do?
-# is trim_cigar required?
-
 option_list <- list(
   make_option(c("-r", "--range"),
               type = "character",
@@ -21,6 +15,14 @@ option_list <- list(
   make_option(c("-t", "--type"),
               type = "character",
               help = "sample, subsample, or condition"),
+  make_option(c("-w", "--width"),
+              type = "character",
+              default = NA,
+              help = "Width of plot"),
+  make_option(c("-e", "--height"),
+              type = "character",
+              default = NA,
+              help = "Height of plot"),
   make_option(c("-o", "--output"),
               type = "character",
               help = "Output")
@@ -29,7 +31,7 @@ option_list <- list(
 opts <- parse_args(
   OptionParser(option_list = option_list),
   # FIXME remove 
-  c("--type", "sample", "--output", "~/tmp/test.pdf", "~/scrap/qutrna/stats/samtools_RL.txt"),
+  # c("--type", "sample", "--output", "~/tmp/test.pdf", "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test_bam/results/stats/samtools_RL.txt"),
   positional_arguments = TRUE
 )
 
@@ -64,7 +66,7 @@ if (is.null(opts$options$limits)) {
   limits <- strsplit(opts$options$limits, ",")[[1]]
 }
 if (is.null(opts$options$breaks)) {
-  breaks = NULL
+  breaks = waiver()
 } else {
   breaks <- strsplit(opts$options$breaks, ",")[[1]]
 }
@@ -83,6 +85,5 @@ if (length(unique(df$base_calling)) == 1) {
     facet_grid(read_type ~ base_calling, labeller = function(...) { return(label_both(sep = ":\n", ...)) })
 }
 
-# n <- df$read_type |> unique() |> length()
-# ggsave(opts$options$output, p)
-# ggsave(paste0(opts$options$output, ".test.pdf"), p, width = max(12, n * 1.5), height = 8) # TODOss
+n <- df$read_type |> unique() |> length()
+ggsave(opts$options$output, p)

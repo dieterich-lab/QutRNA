@@ -65,8 +65,9 @@ rule jacusa2_run:
 ################################################################################
 # Process JACUSA2 scores
 ################################################################################
-def _jacusa_add_scores(_):
-  scores = {plot.get("score", DEFAULT_SCORE) for plot in config["plots"]}
+def _jacusa_add_scores():
+  plots = sorted(config["heatmap_plots"], key = lambda item: item["id"])
+  scores = sorted({plot.get("score", DEFAULT_SCORE) for plot in plots})
 
   return "-s " + ",".join(scores)
 
@@ -76,10 +77,9 @@ rule jacusa2_add_scores:
   conda: "qutrna2"
   log: "logs/jacusa2/add_scores/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.log"
   benchmark: "benchmarks/jacusa2/add_scores/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.txt"
-  params: stats=_jacusa_add_scores,
-          remove_exon_only=config.get("_remove_exon_only", False)
+  params: stats=_jacusa_add_scores()
   shell: """
-    Rscript {workflow.basedir:q}/scripts/add_scores.R --remove {params.remove_exon_only} {params.stats} -o {output:q} {input.jacusa2:q} 2> {log:q}
+    Rscript {workflow.basedir:q}/scripts/add_scores.R {params.stats} -o {output:q} {input.jacusa2:q} 2> {log:q}
   """
 
 
@@ -119,9 +119,9 @@ def _input_jacusa2_max_scores(_):
 
 
 def _params_config_scores():
-  scores = [plot["score"] for plot in config["plots"]]
+  scores = [plot["score"] for plot in config["heatmap_plots"]]
 
-  return list(set([score.split("::")[0] for score in scores]))
+  return sorted(list(set([score.split("::")[0] for score in scores])))
 
 
 rule jacusa2_max_scores:

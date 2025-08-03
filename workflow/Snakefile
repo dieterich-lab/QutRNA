@@ -25,7 +25,7 @@ DefaultValidatingValidator = extend_with_default(Draft202012Validator)
 import yaml
 from snakemake.io import expand
 
-VERSION = "2.0.0-DEV-8"
+VERSION = "2.0.0-DEV-9"
 
 # validate schemas
 with open(workflow.basedir + "/schemas/config.yaml") as stream:
@@ -38,9 +38,12 @@ pepschema: "schemas/pep.yaml"
 include: "rules/common.smk"
 include: "rules/filter.smk"
 include: "rules/samtools.smk"
-include: "rules/parasail.smk"
+if "alignment" in config:
+  include: "rules/parasail.smk"
 include: "rules/jacusa2.smk"
-include: "rules/sec_structure.smk"
+global COORDS
+if COORDS == "sprinzl":
+  include: "rules/sec_structure.smk"
 include: "rules/plot.smk"
 include: "rules/info.smk"
 
@@ -48,106 +51,13 @@ include: "rules/info.smk"
 global FILTERS_APPLIED
 global TBL
 global READS
-global COORDS
 global REF_FASTA
 global REF_FASTA_REVERSED
 global CM
 global SPRINZL_MODE
 global SPRINZL
 
-
-def target_include():
-  targets = [
-    REF_FASTA
-  ]
-  if COORDS == "sprinzl":
-    if SPRINZL_MODE == "cm":
-      targets.append(CM)
-    targets.append(SPRINZL)
-  if READS == "fastq":
-    targets.append(REF_FASTA_REVERSED)
-    for row in TBL.itertuples():
-      targets.extend(
-        expand("data/fastq/sample~{sample}/subsample~{subsample}/{bc}.fastq.gz",
-          sample=row.sample_name,
-          subsample=row.subsample_name,
-          bc=row.base_calling))
-  if READS == "bam":
-    for row in TBL.itertuples():
-      targets.extend(
-        expand("data/fastq/sample~{sample}/subsample~{subsample}/{bc}.sorted.bam",
-          sample=row.sample_name,
-          subsample=row.subsample_name,
-          bc=row.base_calling))
-
-  return targets
-
-
-def target_alignment():
-  targets = []
-  for row in TBL.itertuples():
-    targets.extend(
-        expand("results/plots/alignment/sample~{sample}/subsample~{subsample}/{bc}/alignment_score.pdf",
-               sample=row.sample_name,
-               subsample=row.subsample_name,
-               bc=row.base_calling))
-
-  return targets
-
-
-# TODO diagnostic plot
-def target_sprinzl():
-  return ["results/seq_to_sprinzl_filtered.tsv", ]
-
-
-def target_trna_plots():
-  targets = []
-
-  # TODO add raw/init
-  bam_types = ["final"]
-  if config["call_filtered"] and FILTERS_APPLIED:
-    bam_types += [f"filtered-{f}" for f in FILTERS_APPLIED]
-
-  for conds in pep.config["qutrna2"]["contrasts"]:
-    cond1 = conds["cond1"]
-    cond2 = conds["cond2"]
-
-    dname =  "results/plots/cond1~{cond1}/cond2~{cond2}/{plot_id}/bam~{bam_type}"
-    for plot in config["heatmap_plots"]:
-      targets.append(
-          expand(dname,
-                 cond1=cond1, cond2=cond2,
-                 plot_id=plot["id"], bam_type=bam_types))
-
-  return targets
-
-
-def target_all():
-  targets = []
-  targets.extend(target_trna_plots())
-
-  if READS == "fastq":
-    targets.extend(target_alignment())
-
-  return targets
-
-
-def target_read_feature_plots():
-  targets = []
-  # default overview plots of read features
-  types = ["condition", "sample", "subsample"]
-  targets.extend(expand("results/plots/read_count/{type}.pdf", type=types))
-  targets.extend(expand("results/plots/read_length/{type}.pdf", type=types))
-  # custom read feature specific plots
-  for feature in ["read_length", "read_count"]:
-    for plot in config.get(f"{feature}_plots", []):
-      targets.extend(f"results/plots/{feature}/custom/{plot.id}.pdf")
-
-  if READS == "fastq":
-    targets.extend(expand("results/plots/alignment/threshold_summary.pdf"))
-
-  return targets
-
+########################################################################################################################
 
 def target_info():
   targets = [
@@ -161,30 +71,115 @@ def target_info():
 
   return targets
 
-###############################################################################
-# possible targets for snakemake
-###############################################################################
-# default rule
+def target_trna_plots():
+  targets = []
+
+  bam_types = ["final"]
+  if config["call_filtered"] and FILTERS_APPLIED:
+    bam_types += [f"filtered-{f}" for f in FILTERS_APPLIED]
+
+  for conds in pep.config["qutrna2"]["contrasts"]:
+    cond1 = conds["cond1"]
+    cond2 = conds["cond2"]
+
+    dname =  "results/plots/cond1~{cond1}/cond2~{cond2}/{plot_id}/bam~{bam_type}"
+    for plot in config["heatmap_plots"]:
+      targets.extend(
+        expand(dname,
+          cond1=cond1, cond2=cond2,
+          plot_id=plot["id"], bam_type=bam_types))
+
+  return targets
+
+def target_all():
+  targets = []
+  targets.extend(target_trna_plots())
+
+  if READS == "fastq":
+    targets.extend(target_alignment())
+
+  targets.extend(target_read_feature_plots())
+
+  return targets
+
 rule all:
-  input: target_all() + target_info() + target_read_feature_plots()
+  input: lambda wildcards: target_all() + target_info()
 
+########################################################################################################################
 
-rule alignment:
-  input: target_alignment() + target_info() + target_read_feature_plots()
+#def target_include():
+#  targets = [
+#    REF_FASTA
+#  ]
+#  if COORDS == "sprinzl":
+#    if SPRINZL_MODE == "cm":
+#      targets.append(CM)
+#    targets.append(SPRINZL)
+#  if READS == "fastq":
+#    targets.append(REF_FASTA_REVERSED)
+#    for row in TBL.itertuples():
+#      targets.extend(
+#        expand("data/fastq/sample~{sample}/subsample~{subsample}/{bc}.fastq.gz",
+#          sample=row.sample_name,
+#          subsample=row.subsample_name,
+#          bc=row.base_calling))
+#  if READS == "bam":
+#    for row in TBL.itertuples():
+#      targets.extend(
+#        expand("data/fastq/sample~{sample}/subsample~{subsample}/{bc}.sorted.bam",
+#          sample=row.sample_name,
+#          subsample=row.subsample_name,
+#          bc=row.base_calling))
+#
+#  return targets
+#
+#rule include:
+#  input: target_include()
 
+########################################################################################################################
+
+if READS == "fastq":
+  def target_alignment():
+    targets = []
+    for row in TBL.itertuples():
+      targets.extend(
+        expand("results/plots/alignment/sample~{sample}/subsample~{subsample}/{bc}/alignment_score.pdf",
+          sample=row.sample_name,
+          subsample=row.subsample_name,
+          bc=row.base_calling))
+
+    return targets
+
+  rule alignment:
+    input: target_alignment() + target_info()
+
+########################################################################################################################
+
+if COORDS == "sprinzl":
+  def target_sprinzl():
+    return ["results/seq_to_sprinzl_filtered.tsv", ]
 
 rule sprinzl:
   input: target_sprinzl() + target_info()
 
+########################################################################################################################
+
+def target_read_feature_plots():
+  targets = []
+  # default overview plots of read features
+  types = ["condition", "sample", "subsample"]
+  targets.extend(expand("results/plots/record_count/{type}.pdf", type=types))
+  targets.extend(expand("results/plots/read_length/{type}.pdf", type=types))
+  # custom read feature specific plots
+  for feature in ["read_length", "record_count"]:
+    for plot in config.get(f"{feature}_plots", []):
+      targets.append(f"results/plots/{feature}/custom/{plot.id}.pdf")
+
+  if READS == "fastq":
+    targets.append("results/plots/alignment/threshold_summary.pdf")
+
+  return targets
 
 rule read_feature_plots:
   input: target_read_feature_plots() + target_info()
-
-
-rule info:
-  input: target_info()
-
-rule include:
-  input: target_include()
-
 

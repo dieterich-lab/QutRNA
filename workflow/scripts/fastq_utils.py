@@ -11,12 +11,17 @@ class BaseChange(enum.Enum):
     T2U = enum.auto()
 
 
-@click.command()
+@click.group()
+def cli():
+    pass
+
+
+@cli.command()
 @click.option("-c", "--base-change", type = click.Choice(BaseChange, case_sensitive=False), help="Base change: U2T or T2U.")
-@click.option("-r", "--reverse",is_flag=True, default=False, help="Reverse sequence.")
+@click.option("-r", "--reverse", is_flag=True, default=False, help="Reverse sequence.")
 @click.option("-o", "--output", required=True, type=click.Path())
-@click.argument("fastq", type=click.Path())
-def process(fastq, base_change, reverse, output):
+@click.argument("FASTQ", type=click.Path())
+def transform(fastq, base_change, reverse, output):
     """Generate FASTQ for parasail"""
 
     encoding = guess_type(fastq)[1]
@@ -41,6 +46,7 @@ def process(fastq, base_change, reverse, output):
     if base_change:
         bc = base_change.name.split("2")
         tasks.append(do_base_change(bc[0], bc[1]))
+
     if reverse:
         tasks.append(do_reverse)
 
@@ -53,4 +59,4 @@ def process(fastq, base_change, reverse, output):
 
 
 if __name__ == '__main__':
-    process()
+    cli()

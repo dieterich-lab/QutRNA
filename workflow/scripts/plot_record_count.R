@@ -6,25 +6,27 @@ library(scales)
 library(optparse)
 
 
-# TODO
-# number of reads 
-# random_alignment and samtools
-# FIX pass and fail for subsample
-
 option_list <- list(
   make_option(c("-t", "--type"),
               type = "character",
-              help = "sample, subsample, or condition"),
+              help = "Sample, subsample, or condition"),
+  make_option(c("-w", "--width"),
+              type = "character",
+              default = NA,
+              help = "Width of plot"),
+  make_option(c("-e", "--height"),
+              type = "character",
+              default = NA,
+              help = "Height of plot"),
   make_option(c("-o", "--output"),
                 type = "character",
                 help = "Output")
 )
 
-
+# FIXME remove c("--type", "sample", "--output", "~/tmp/test2.pdf", "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test1/results/stats/record_count.txt"),
+#c("--type", "subsample", "--output", "~/tmp/test2.pdf", "~/scrap/qutrna/stats/record_count_pass_fail.txt"),
 opts <- parse_args(
   OptionParser(option_list = option_list),
-  # FIXME remove c("--type", "sample", "--output", "~/tmp/test2.pdf", "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test1/results/stats/read_count.txt"),
-  c("--type", "subsample", "--output", "~/tmp/test2.pdf", "~/scrap/qutrna/stats/read_count_pass_fail.txt"),
   positional_arguments = TRUE
 )
 
@@ -38,12 +40,12 @@ df <- read.table(opts$args,
          read_type = factor(read_type, levels = rev(unique(read_type)), ordered = TRUE))
 
 df <- df |>
-  summarise(reads = sum(reads), .by = c(all_of(opts$options$type), base_calling, read_type))
+  summarise(records = sum(records), .by = c(all_of(opts$options$type), base_calling, read_type))
 
 p <- df |>
-  ggplot(aes(x = read_type, y = reads, fill = !!sym(opts$options$type))) +
+  ggplot(aes(x = read_type, y = records, fill = !!sym(opts$options$type))) +
   xlab("read type") +
-  ylab("read count") +
+  ylab("record count") +
   guides(fill = guide_legend(opts$options$type)) +
   scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6)) +
   geom_col(position = "dodge") +
@@ -65,5 +67,4 @@ if (length(unique(df$base_calling)) == 1) {
                labeller = function(...) { return(label_both(sep = ":\n", ...)) })
 }
 
-# TODO width, height?
-# ggsave(opts$options$output, p, width = 8, height = 6)
+ggsave(opts$options$output, p)

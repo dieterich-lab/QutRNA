@@ -7,6 +7,14 @@ library(optparse)
 library(patchwork)
 
 option_list <- list(
+  make_option(c("-e", "--height"),
+              type = "numeric",
+              default = NA,
+              help = "Height of plot"),
+  make_option(c("-w", "--width"),
+              type = "numeric",
+              default = NA,
+              help = "Width of plot"),
   make_option(c("-t", "--type"),
               type = "character",
               help = "BAM type(s)"),
@@ -21,11 +29,11 @@ option_list <- list(
 
 opts <- parse_args(
   OptionParser(option_list = option_list),
-  # TODO
-  # c("--type", "mapped,mapped-rev",
-  #   "--output", "~/tmp/results/plots/alignment/threshold_summary.pdf",
-  #   "--cutoff", "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test_bam/results/stats/cutoff.txt",
-  #   "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test_bam/results/stats/alignment_score.txt"),
+  # FIXME remove
+  #c("--type", "mapped,mapped-rev",
+  # "--output", "~/tmp/results/plots/alignment/threshold_summary.pdf",
+  # "--cutoff", "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test_pep_new2/results/stats/cutoff.txt",
+  # "/beegfs/prj/tRNA_Francesca_Tuorto/qutrna_paper/test/adapter_length/test_pep_new/results/stats/alignment_score.txt"),
   positional_arguments = TRUE
 )
 
@@ -35,6 +43,17 @@ read_types <- strsplit(opts$options$type, ",")[[1]]
 stopifnot(read_types != "")
 stopifnot(length(read_types) > 1)
 
+format_sample_desc <- function(df) {
+  base_calling <- length(unique(df$base_calling)) > 1
+  i <- df$sample != df$subsample
+  sample_desc <- df$sample
+  if (any(i)) {
+    sample_desc[i] <- paste0(df$sample[i], " (", df$subsample[i], " ", df$base_calling[i], ")")
+  }
+  
+  return(sample_desc)
+}
+
 cutoffs <- read.table(opts$options$cutoff, header = TRUE, sep = "\t") |>
   mutate(label = paste0("Threshold: ", cutoff),
          category = case_match(
@@ -42,6 +61,7 @@ cutoffs <- read.table(opts$options$cutoff, header = TRUE, sep = "\t") |>
            "mapped" ~ "Real",
            "mapped-rev" ~ "Random"),
          category = as.factor(category))
+cutoffs$sample_desc <- format_sample_desc(cutoffs)
 scores <- read.table(opts$args,
                  sep = "\t",
                  header = TRUE) |>
@@ -51,8 +71,8 @@ scores <- read.table(opts$args,
            read_type,
            "mapped" ~ "Real",
            "mapped-rev" ~ "Random"),
-         category = as.factor(category),
-         sample_desc = paste0("sample~", sample, "  subsample~", subsample, "  ", "base calling~", base_calling))
+         category = as.factor(category))
+scores$sample_desc <- format_sample_desc(scores)
 
 aln_score_lim <- range(scores$alignment_score)
 count_lim <- range(scores$count)
@@ -88,4 +108,5 @@ plots <- plots +
     axes = "collect",
     ncol = length(unique(scores$condition)))
 
-ggsave(opts$options$output, plots)
+ggsave(opts$options$output, plots,
+       width = opts$options$width, height = opts$options$height)

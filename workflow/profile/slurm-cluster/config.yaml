@@ -1,0 +1,40 @@
+executor: slurm
+jobs: 20
+slurm_account:
+default-resources:
+  mem_mb: 6000
+  slurm_partition: general
+  cpus_per_task: 1
+set-threads:
+  parasail_gpu_assisted: 2
+  jacusa2_run: 20
+set-resources:
+  filter_trim_cigar:
+    mem_mb: 10000
+  filter_alignment_length:
+    mem_mb: 10000
+  jacusa2_run:
+    mem_mb: 40000
+    cpus_per_task: 10
+  samtools_merge:
+    mem_mb: 10000
+  cm_align:
+    mem_mb: 10000
+  plot_heatmap_final:
+    mem_mb: 10000
+  plot_record_count:
+    mem_mb: 10000
+  plot_read_length:
+    mem_mb: 10000
+  plot_read_multimapper:
+    mem_mb: 10000
+  parasail_gpu_assisted:
+    mem_mb: 25000
+    slurm_partition: "gpu"
+    gres: "gpu:turing:1"
+    cpus_per_task: 2
+show-failed-logs: True
+printshellcmds: True
+use-conda: True
+use-envmodules: True
+restart-times: 0

@@ -25,17 +25,13 @@ dependencies:
   - r-data.table
   - r-dplyr
   - r-ggplot2
-  - r-ggpubr
-  - r-jacusa2helper
-  - r-magrittr
   - r-patchwork
   - r-optparse
-  - r-pheatmap
   - r-stringr
   - r-tidyr
+  - r-tinytex
   - r-yardstick
-  - r-ggh4x
+  - r-knitr
   - samtools
   - snakemake
   - pdfcrop.pl
-

@@ -62,13 +62,13 @@ rule samtools_coverage:
   """
 
 
-rule samtools_read_count:
+rule samtools_record_count:
   input: "{prefix}.sorted.bam"
-  output: "{prefix}_stats/read_count.txt"
+  output: "{prefix}_stats/record_count.txt"
   conda: "qutrna2"
-  log: "logs/samtools/read_count/{prefix}.log"
+  log: "logs/samtools/record_count/{prefix}.log"
   shell: """
-    samtools view -c {input:q} | awk 'BEGIN {{ print "reads" }} ; {{ print }} '> {output:q} 2> {log:q}
+    samtools view -c {input:q} | awk 'BEGIN {{ print "records" }} ; {{ print }} '> {output:q} 2> {log:q}
   """
 
 
@@ -78,10 +78,7 @@ rule samtools_multimapper:
   conda: "qutrna2"
   log: "logs/samtools/multimapper/{prefix}.log"
   shell: """
-    ( samtools view {input:q} | \
-      cut -f1,3 | \
-      sort -k1,1 | \
-      python  {workflow.basedir}/count_multimapper.py ) > {output:q} 2> {log:q}
+    python  {workflow.basedir}/scripts/bam_utils.py count-multimapper --output {output:q} {input:q} 2> {log:q}
   """
 
 
@@ -91,7 +88,7 @@ rule samtools_alignment_score:
   conda: "qutrna2"
   log: "logs/samtools/alignment_score/{prefix}.log"
   shell: """
-    python {workflow.basedir}/scripts/get_as.py {input:q} > {output:q} 2> {log:q}
+    python {workflow.basedir}/scripts/bam_utils.py count-tag -t AS -c alignment_score --output {output:q} {input:q} 2> {log:q}
   """
 
 

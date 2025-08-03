@@ -1,17 +1,16 @@
+alignment:
+  parasail
+  gpu
+
 parasail:
-  opts: # overwrite default parametes to parasail. Check "schema/config.yaml" (parasail["opts"]) for default values
+  opts: # overwrite default parameters to parasail. C
   lines: # split input FASTA into number of lines. MAKE sure thisdivisble by 4!
-
-
-# This only applies if using fastq as input and
-# mapping reads with one of the available parasail workflows.
-params:
-  precision: 0.999 # Calibrate alignment score offset with precision
-  min_aln_score: 10 # Minimum alignment score to consider for calibration
-
 
 # Filtering pipeline
 filter:
+  random_alignment: # available only if mapping reads
+    precision: 0.999 # Calibrate alignment score offset with precision
+    min_aln_score: 10 # Minimum alignment score to consider for calibration
   samtools:
     filter: # 'samtools view' opts, default: "-F 3328"
     callmd: true|false # set to true, to fix MD field with samtools
@@ -33,7 +32,7 @@ read_length_plots:
   - id:
     opts:
 
-read_count_plots:
+record_count_plots:
   - id:
     opts:
 
@@ -41,7 +40,7 @@ heatmap_plots:
   # default plots
   - id: isodecoder # unique id for plots. Will be available under results/plots/{id}
     trnas: isodecoder # how to group tRNAs in plots: isodecoder, isoacceptor
-    opts: # CLI options to scripts/plot_score.R
+    opts: # CLI options to scripts/plot_heatmap.R
     position: # restrict plots to positions, e.g. [34,35,36]
   - id: isoacceptor
     trnas: isoacceptor
