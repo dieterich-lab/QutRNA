@@ -1,5 +1,4 @@
 import click
-from contextlib import contextmanager
 import enum
 import gzip
 import re

@@ -15,7 +15,8 @@ wildcard_constraints:
   SAMPLE="[^~/]+",
   SUBSAMPLE="[^~/]+",
   ORIENT="[^~/]+",
-  BC="[^~/]+"
+  BC="[^~/]+",
+  FEATURE="[^~/\.]+"
 
 
 def create_include(name_, input_, output_, params_):
@@ -35,34 +36,36 @@ def create_include(name_, input_, output_, params_):
 
 # coordinate system: sequence or sprinzl
 # in case of sprinzl handle if model or precalculate mapping
-if pep.config["qutrna2"]["coords"] == "sprinzl":
-  COORDS = "sprinzl"
+COORDS = pep.config["qutrna2"]["coords"]
+if COORDS == "sprinzl":
+  # consensus annotation
   SPRINZL = "data/sprinzl.txt"
   create_include("sprinzl",
     pep.config["qutrna2"]["sprinzl"],
     SPRINZL,
-    config["include"].get("sprinzl","copy"))
+    config["include"].get("sprinzl", "copy"))
   if "cm" in pep.config["qutrna2"]:
+    # how mapping to sprinzl coordinates are calculate, by alignment or from existing mapping
     SPRINZL_MODE = "cm"
+    # covariance model destination
     CM = "data/cm.stk"
     create_include("cm",
       pep.config["qutrna2"]["cm"],
       CM,
       config["include"]["cm"])
+    SEQ_TO_SPRINZL_INIT = "results/ss/seq_to_sprinzl.tsv"
   elif "seq_to_sprinzl" in pep.config["qutrna2"]:
     SPRINZL_MODE = "seq2sprinzl"
+    SEQ_TO_SPRINZL_INIT = "data/seq_to_sprinzl.tsv"
     create_include("seq_to_sprinzl",
       pep.config["qutrna2"]["seq_to_sprinzl"],
-      "data/seq_to_sprinzl.tsv",
-      config["include"].get("seq_to_sprinzl","copy"))
+      SEQ_TO_SPRINZL_INIT,
+      config["include"].get("seq_to_sprinzl", "copy"))
   else:
-    raise Exception("Must provide other 'cm' or 'seq_to_sprinzl' in config!")
-  SEQ_TO_SPRINZL = "results/ss/seq_to_sprinzl_filtered.tsv"
-else:
-  COORDS = "sequence"
+    raise Exception("Must provide either 'cm' or 'seq_to_sprinzl' in config!")
+  SEQ_TO_SPRINZL_FINAL = "results/ss/seq_to_sprinzl_filtered.tsv"
 
-
-# include and transform reference
+# include and optionally transform reference
 REF_FASTA = "data/ref.fasta"
 create_include("ref_fasta",
   pep.config["qutrna2"]["ref_fasta"],
@@ -79,7 +82,7 @@ def _include_fnames(ftype):
     tbl = TBL.loc[[wildcards.SAMPLE]]
     j = (tbl.subsample_name == wildcards.SUBSAMPLE) & (tbl.base_calling == wildcards.BC)
     if sum(j.tolist()) != 1:
-      raise Exception("Housten, we have a problem!")
+      raise Exception("Houston, we have a problem!")
 
     return tbl.loc[j, ftype].to_list()[0]
 
@@ -90,26 +93,25 @@ if "bam" in pep.sample_table.columns and "fastq" in pep.sample_table.columns:
   raise Exception("Only column 'bam' or 'fastq' can be set in sample table.")
 
 READS = "" # will be bam or fastq
-READS_INPUT = "" # will point to a path where bam or fastq can be found
 if "bam" in pep.sample_table.columns:
   READS = "bam"
-  READS_INPUT = "data/bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam"
+  BAM_READS_INPUT = "data/bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam"
 
   create_include("bams",
     _include_fnames("bam"),
-    READS_INPUT,
+    BAM_READS_INPUT,
     config["include"]["bam"])
 
   if "bam" in config["transform"]:
     base_change = config["transform"]["bam"].get("base_change")
     reverse_seq = config["transform"]["bam"].get("reverse")
     if base_change or reverse_seq:
-      _old_reads_input = READS_INPUT
-      READS_INPUT = "results/bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam",
+      _old_reads_input = BAM_READS_INPUT
+      BAM_READS_INPUT = "results/bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam",
 
       rule transform_bam:
         input: _old_reads_input
-        output: READS_INPUT
+        output: BAM_READS_INPUT
         params: base_change=lambda wildcards: "--base-change {base_change} " if base_change else "",
                 reverse=lambda wildcards: "--reverse " if reverse_seq else ""
         conda: "qutrna2"
@@ -119,21 +121,22 @@ if "bam" in pep.sample_table.columns:
         """
 elif "fastq" in pep.sample_table.columns:
   READS = "fastq"
-  READS_INPUT = "data/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz"
+  FASTQ_READS_INPUT = "data/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz"
+  BAM_READS_INPUT = "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~fwd/{BC}.sorted.bam"
   REF_FASTA_REVERSED = "results/data/ref_reversed.fasta"
 
   create_include("fastq",
     _include_fnames("fastq"),
-    READS_INPUT,
+    FASTQ_READS_INPUT,
     config["include"]["fastq"])
 
   if config["transform"].get("fastq", {}).get("base_change"):
     _old_reads_input = "data/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz"
-    READS_INPUT = "results/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz"
+    FASTQ_READS_INPUT = "results/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.fastq.gz"
 
     rule transform_fastq:
       input: _old_reads_input
-      output: READS_INPUT
+      output: FASTQ_READS_INPUT
       log: "logs/transform_fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.log"
       params: base_change=config["transform"]["fastq"]["base_change"]
       conda: "qutrna2"
@@ -141,16 +144,14 @@ elif "fastq" in pep.sample_table.columns:
         python {workflow.basedir}/scripts/fastq_utils.py transform --output {output:q} --base-change {params.base_change} {input:q} 2> {log:q}
       """
 
-  rule reverse_fasta:
+  rule fasta_reverse:
     input: REF_FASTA
     output: REF_FASTA_REVERSED
-    log: "logs/reverse_fasta.log"
+    log: "logs/fasta_reverse.log"
     conda: "qutrna2"
     shell: """
         python {workflow.basedir}/scripts/fasta_utils.py transform --output {output:q} --reverse {input:q} 2> {log:q}
       """
-else:
-  raise Exception("Missing ('bam' or ' 'fastq') column in sample table.")
 
 
 __nested_cols = []
@@ -237,20 +238,33 @@ def _aggregate_stats_helper(read_type, sample, row):
   key = [row.condition, sample, row.subsample_name, row.base_calling]
   return "|".join([read_type] + key)
 
-# FIXME gzip
 def _aggregate_stats_input(wildcards):
-  if wildcards.feature == "alignment_score" and READS == "fastq":
+  if wildcards.STAT == "alignment_score" and READS == "fastq":
     t2fnames = _aggregate_stats_general_input(wildcards)
     for sample in SAMPLES:
       df = TBL.loc[[sample]]
       for row in df.itertuples(index=False):
-        t2fnames[_aggregate_stats_helper("mapped-rev", sample, row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~rev/{row.base_calling}_stats/{wildcards.feature}.txt"
-  elif wildcards.feature == "cutoff" and READS == "fastq":
+        t2fnames[_aggregate_stats_helper("mapped-rev", sample, row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~rev/{row.base_calling}_stats/{wildcards.STAT}.{wildcards.suffix}"
+  elif wildcards.STAT == "cutoff" and READS == "fastq":
     t2fnames = {}
     for sample in SAMPLES:
       df = TBL.loc[[sample]]
       for row in df.itertuples(index=False):
-        t2fnames[_aggregate_stats_helper("mapped",sample,row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt"
+        t2fnames[_aggregate_stats_helper("mapped", sample, row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.STAT}.{wildcards.suffix}"
+  elif wildcards.STAT in ["record_count", "read_length"] and READS == "fastq":
+    fname = FASTQ_READS_INPUT.replace(".fastq.gz","")
+    fname = f"{fname}_stats/{wildcards.STAT}.{wildcards.suffix}"
+    t2fnames = {}
+    for sample in SAMPLES:
+      df = TBL.loc[[sample]]
+      for row in df.itertuples(index=False):
+        key = _aggregate_stats_helper("fastq", sample, row)
+        t2fnames[key] = fname.format(
+          SAMPLE=sample,
+          SUBSAMPLE=row.subsample_name,
+          BC=row.base_calling
+        )
+    t2fnames.update(_aggregate_stats_general_input(wildcards))
   else:
     t2fnames = _aggregate_stats_general_input(wildcards)
 
@@ -261,17 +275,22 @@ def _aggregate_stats_general_input(wildcards):
   for sample in SAMPLES:
     df = TBL.loc[[sample]]
 
+    fname = BAM_READS_INPUT.replace(".sorted.bam","")
+    fname = f"{fname}_stats/{wildcards.STAT}.{wildcards.suffix}"
     # collect subsamples
     for row in df.itertuples(index=False):
+      key = ""
       if hasattr(row, "bam"):
-        t2fnames[_aggregate_stats_helper("raw", sample, row)] = f"data/bam/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt"
+        key = _aggregate_stats_helper("raw", sample, row)
       elif hasattr(row, "fastq"):
-        t2fnames[_aggregate_stats_helper("mapped", sample, row)] = f"results/bam/mapped/sample~{sample}/subsample~{row.subsample_name}/orient~fwd/{row.base_calling}_stats/{wildcards.feature}.txt"
-      else:
-        raise Exception(f"READS must be ('bam' or 'fastq')")
-
+        key = _aggregate_stats_helper("mapped", sample, row)
+      t2fnames[key] = fname.format(
+        SAMPLE=sample,
+        SUBSAMPLE=row.subsample_name,
+        BC=row.base_calling
+      )
       for read_type in FILTERS_APPLIED:
-        t2fnames[_aggregate_stats_helper(read_type, sample, row)] = f"results/bam/filtered-{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.feature}.txt"
+        t2fnames[_aggregate_stats_helper(read_type, sample, row)] = f"results/bam/filtered-{read_type}/sample~{sample}/subsample~{row.subsample_name}/{row.base_calling}_stats/{wildcards.STAT}.{wildcards.suffix}"
 
   return t2fnames
 
@@ -284,9 +303,9 @@ def _aggregate_stats_params(_, input):
 
 rule aggregate_stats:
   input: unpack(_aggregate_stats_input)
-  output: "results/stats/{feature}.txt"
+  output: "results/stats/{STAT}.{suffix}"
   conda: "qutrna2"
-  log: "logs/stats/{feature}.log"
+  log: "logs/stats/{STAT}_{suffix}log"
   params: opts=_aggregate_stats_params
   shell: """
     python {workflow.basedir}/scripts/aggregate_feature.py \
@@ -332,3 +351,31 @@ else:
     shell: """
       python {workflow.basedir}/scripts/fasta_utils.py infer-annotation --output {output:q} {input:q} 2> {log:q}
     """
+
+
+rule fastq_read_count:
+  input: "{prefix}.fastq.gz"
+  output: "{prefix}_stats/record_count.txt"
+  conda: "qutrna2"
+  log: "logs/fastq/read_count/{prefix}.log"
+  shell: """
+    ( gzip -cd pass.fastq.gz | awk ' END {{ print NR/4 }} ' ) > {output:q} 2> {log:q}
+  """
+
+
+rule fastq_read_length:
+  input: "{prefix}.fastq.gz"
+  output: "{prefix}_stats/read_length.txt"
+  conda: "qutrna2"
+  log: "logs/fastq/read_length/{prefix}.log"
+  shell: """
+    (
+      gzip -cd {input:q} | \
+        awk ' NR % 4 == 2 {{ print(length($$0)) }} ' | \
+        sort | \
+        uniq -c | \
+        sort -k2,2 -V | \
+        awk -v OFS="\t" ' BEGIN {{ print "read_length","count" }} ; {{ print $$2,$$1 }} ' \
+    ) > {output:q} 2> {log:q}
+  """
+

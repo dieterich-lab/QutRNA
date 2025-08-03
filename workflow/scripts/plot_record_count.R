@@ -10,6 +10,9 @@ option_list <- list(
   make_option(c("-t", "--type"),
               type = "character",
               help = "Sample, subsample, or condition"),
+  make_option(c("-i", "--ignore_read_type"),
+              type = "character",
+              help = "Ignore read type"),
   make_option(c("-w", "--width"),
               type = "character",
               default = NA,
@@ -18,6 +21,10 @@ option_list <- list(
               type = "character",
               default = NA,
               help = "Height of plot"),
+  make_option(c("-p", "--add_percent"),
+              type = "logical",
+              default = FALSE,
+              help = "Show percentage"),
   make_option(c("-o", "--output"),
                 type = "character",
                 help = "Output")
@@ -35,7 +42,15 @@ stopifnot(opts$options$type %in% c("sample", "subsample", "condition"))
 
 df <- read.table(opts$args,
                  sep = "\t",
-                 header = TRUE) |>
+                 header = TRUE)
+
+if (!is.null(opts$options$ignore_read_type)) {
+  ignore_read_type <- strsplit(opts$options$ignore_read_type, ",")[[1]]
+  df <- df |>
+    filter(!read_type %in% ignore_read_type)
+}
+
+df <- df |>
   mutate(base_calling = factor(base_calling, levels = c("pass", "fail", "merged", "unknown"), ordered = TRUE),
          read_type = factor(read_type, levels = rev(unique(read_type)), ordered = TRUE))
 
@@ -53,7 +68,15 @@ p <- df |>
   theme_bw() +
   theme(legend.position = "bottom",
         text = element_text(size = 18))
-        
+
+if (opts$options$add_percentage) {
+  ref_read_type <- levels(df$read_type)[1]
+  df <- df |>
+    mutate(percent = scales::percent(records / records[records == ref_read_type]),
+           .by = c(all_of(opts$options$type), base_calling, read_type))
+  p <- p +
+    geom_text(aes(label = percent))
+}
 
 if (length(unique(df$base_calling)) == 1) {
   p <- p +

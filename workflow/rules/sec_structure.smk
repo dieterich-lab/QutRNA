@@ -1,7 +1,8 @@
 import pandas as pd
 
 global SPRINZL_MODE
-global SEQ_TO_SPRINZL
+global SEQ_TO_SPRINZL_INIT
+global SEQ_TO_SPRINZL_FINAL
 global REF_FILTERED_TRNAS_FASTA
 global SPRINZL
 
@@ -11,7 +12,7 @@ if SPRINZL_MODE == "cm":
 
   rule cmalign_run:
     input: cm=CM,
-      fasta=REF_FILTERED_TRNAS_FASTA
+           fasta=REF_FILTERED_TRNAS_FASTA
     output: "results/cmalign/align.stk"
     log: "logs/cmalign/run.log"
     threads: 1
@@ -41,12 +42,10 @@ if SPRINZL_MODE == "cm":
         2> {log:q}
     """
 
-
-  _SS_SEQ_TO_SPRINZL = "results/ss/seq_to_sprinzl.tsv"
   rule ss_map_seq_to_sprinzl:
     input: align="results/cmalign/align.stk",
            consensus_annotated="results/ss/consensus_annotated.tsv"
-    output: _SS_SEQ_TO_SPRINZL
+    output: SEQ_TO_SPRINZL_INIT
     conda: "qutrna2"
     log: "logs/ss/map_seq_to_sprinzl.log"
     shell: """
@@ -63,8 +62,8 @@ else:
 ########################################################################################################################
 
 rule ss_seq_to_sprinzl_final:
-  input: _SS_SEQ_TO_SPRINZL
-  output: SEQ_TO_SPRINZL
+  input: SEQ_TO_SPRINZL_INIT
+  output: SEQ_TO_SPRINZL_FINAL
   run:
     df = pd.read_csv(input[0],sep="\t")
     df = df[df["sprinzl"] != "-"]
@@ -72,11 +71,12 @@ rule ss_seq_to_sprinzl_final:
 
 rule ss_transform:
   input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_seq.tsv",
-         seq_sprinzl=SEQ_TO_SPRINZL
+         seq_sprinzl=SEQ_TO_SPRINZL_FINAL
   output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_sprinzl.tsv"
   conda: "qutrna2"
   log: "logs/ss/transform/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.log"
   params: linker5=pep.config["qutrna2"]["linker5"]
+
   shell: """
     python {workflow.basedir:q}/scripts/sprinzl_utils.py transform \
         --sprinzl {input.seq_sprinzl:q} \

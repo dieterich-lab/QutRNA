@@ -3,7 +3,7 @@ from snakemake.io import directory, temp, glob_wildcards, expand
 
 global REF_FASTA
 global REF_FASTA_REVERSED
-global READS_INPUT
+global FASTQ_READS_INPUT
 
 
 ##############################################################################
@@ -12,7 +12,7 @@ global READS_INPUT
 ##############################################################################
 
 checkpoint parasail_split_reads:
-  input: READS_INPUT
+  input: FASTQ_READS_INPUT
   output: temp(directory("results/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_split"))
   log: "logs/parasail/split_reads/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.log"
   conda: "qutrna2"
@@ -46,11 +46,11 @@ rule parasail_map_split_postprocess:
   input: sam="results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.sam",
          ref=lambda wildcards: REF_FASTA if wildcards.ORIENT == "fwd" else REF_FASTA_REVERSED
   output: temp("results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.bam")
-  log: "logs/parasail/map_postprocess/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.bam"
+  log: "logs/parasail/map_split_postprocess/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.bam"
   benchmark: "benchmarks/parasail/map_split_postprocess/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.tsv"
   conda: "qutrna2"
   params:
-    min_aln_score=config["alignment"]["parasail"]["min_aln_score"] # FIXME
+    min_aln_score=config["parasail"]["min_aln_score"]
   shell: """
     (
       samtools view -b -F 4 {input.sam:q} | \

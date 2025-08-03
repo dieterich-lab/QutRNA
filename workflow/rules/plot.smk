@@ -1,5 +1,3 @@
-from os.path import split
-
 from snakemake.io import directory, unpack
 
 global DEFAULT_SCORE
@@ -7,6 +5,7 @@ global REF_FASTA
 global SCORES
 global SPRINZL
 global TRNA_ANNOTATION
+global MAX_SCORES
 
 
 ################################################################################
@@ -14,11 +13,17 @@ global TRNA_ANNOTATION
 ################################################################################
 
 
-PLOTS = {plot["id"]: plot for plot in config["heatmap_plots"]}
+def get_plot(plot_type, plot_id):
+  plots = config["plots"][plot_type]
+  for plot in plots:
+    if plot["id"] == plot_id:
+      return plot
+
+  raise KeyError(f"Unknown plot_id: {plot_id}")
 
 
 def _plot_heatmap_opts(wildcards, input):
-  plot = PLOTS[wildcards.plot_id]
+  plot = get_plot("heatmap", wildcards.plot_id)
 
   opts = {}
 
@@ -40,7 +45,6 @@ def _plot_heatmap_opts(wildcards, input):
   if "ref_fasta_prefix" in pep.config["qutrna2"]:
     opts["--remove_prefix"] = pep.config["qutrna2"]["ref_fasta_prefix"]
 
-  # fixme
   for contrast in pep.config["qutrna2"]["contrasts"]:
     if wildcards.COND1 == contrast["cond1"] and wildcards.COND2 == contrast["cond2"] and "flag" in contrast:
       flag_positions = ",".join(contrast["flag"])
@@ -51,7 +55,7 @@ def _plot_heatmap_opts(wildcards, input):
     score = plot["score"]
   opts["--score_column"] = score.split("::")[0]
   if "sprinzl" in pep.config["qutrna2"]:
-    opts["--sprinzl"] = input.sprinzl # FIXME
+    opts["--sprinzl"] = input.sprinzl
 
   if plot["harmonize_scaling"] != "NONE":
     if plot["harmonize_scaling"] == "CONTRAST":
@@ -74,7 +78,7 @@ def _plot_heatmap_opts(wildcards, input):
 
 
 def _plot_heatmap_input(wildcards):
-  plot = PLOTS[wildcards.plot_id]
+  plot = get_plot("heatmap", wildcards.plot_id)
 
   d = {
     "scores": f"results/jacusa2/cond1~{{COND1}}/cond2~{{COND2}}/bam~{{bam_type}}/{SCORES}",
@@ -86,7 +90,7 @@ def _plot_heatmap_input(wildcards):
     d["sprinzl"] = SPRINZL
 
   if plot["harmonize_scaling"] == "FILTER" or plot["harmonize_scaling"] == "CONTRAST_FILTER":
-    d["max_scores"] = "results/jacusa2/max_scores.tsv"
+    d["max_scores"] = MAX_SCORES
 
   return d
 
@@ -164,6 +168,7 @@ rule plot_read_length_custom:
   """
 
 
+# TODO test
 rule plot_multimapper:
   input: "results/stats/multimapper.txt"
   output: "results/plots/multimapper.pdf"

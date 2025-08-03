@@ -29,7 +29,7 @@ class Filter(ABC):
     self.params = {}
 
   def process(self) -> bool:
-    if not self.filter_name in config["filter"]:
+    if not self.filter_name in config["filter"] or not config["filter"][self.filter_name]["apply"]:
       return False
 
     return self._process()
@@ -42,18 +42,23 @@ class Filter(ABC):
     raise NotImplementedError
 
   def shell_formatted(self):
-    cmd = "| ".join(self.cmds)
+    cmd = "| \n".join(self.cmds)
     cmd = f"( {cmd} ) 2> {{log:q}}"
 
     return cmd
 
   def create_rule(self):
     if self.process():
+      # use previous bam as input
       self.input["bam"] = self.OUTPUT[-1]
       self.input["bai"] = self.input["bam"] + ".bai"
+
+      # add new output
       self.OUTPUT.append(self.output["bam"])
       self.output["bam"] = temp(self.output["bam"])
+
       FILTERS_APPLIED.append(self.filter_name)
+
       rule:
         name: f"filter_{self.filter_name}"
         input: **self.input
@@ -104,9 +109,6 @@ class FilterTrimCigar(Filter):
     super().__init__("trim_cigar")
 
   def _process(self):
-    if not self.config:
-      return False
-
     self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt"
     self.cmds.append(
       f"python {workflow.basedir}/scripts/bam_utils.py filter --stats {{output.stats:q}} --trim-cigar --output {{output.bam:q}} {{input.bam:q}}")
@@ -161,6 +163,7 @@ class FilterMultimapper(Filter):
     if not self.config:
       return False
 
+    # sort by read_id, count multimapper, sort by soordinate
     self.cmds.append("samtools sort -n {input.bam:q}")
     self.cmds.append(f"python {workflow.basedir}/scripts/bam_utils.py filter-multimapper /dev/stdin")
     self.cmds.append("samtools sort -o {output.bam:q} /dev/stdin")
@@ -174,13 +177,14 @@ class FilterAdapterOverlap(Filter):
 
   def _process(self):
     self.input["ref_fasta"] = REF_FASTA
-    opts = []
     conf = self.config
+
     pep_conf = pep.config["qutrna2"]
     pep_pairs = {
       "linker5": "--five-adapter",
       "linker3": "--three-adapter"
     }
+    opts = []
     for key, opt in pep_pairs.items():
       if pep_conf.get(key):
         opts.append(f"{opt} {pep_conf[key]}")
@@ -196,7 +200,6 @@ class FilterAdapterOverlap(Filter):
       return False
 
     self.params["opts"] = opts
-    # FIXME gzip
     self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt.gzip"
     self.cmds.append(
       f"python {workflow.basedir}/scripts/bam_utils.py adapter-overlap --fasta {{input.ref_fasta}} {{params.opts}} --stats {{output.stats:q}} --output {{output.bam:q}} {{input.bam:q}}")

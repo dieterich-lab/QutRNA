@@ -3,11 +3,11 @@ from snakemake.io import temp
 
 global REF_FASTA
 global REF_FASTA_REVERSED
-global READS_INPUT
+global FASTQ_READS_INPUT
 
 
 rule parasail_map:
-    input: fastq=READS_INPUT,
+    input: fastq=FASTQ_READS_INPUT,
            ref_fasta=lambda wildcards: REF_FASTA if wildcards.ORIENT == "fwd" else REF_FASTA_REVERSED
     output: temp("results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sam")
     log: "logs/parasail/map/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.log"

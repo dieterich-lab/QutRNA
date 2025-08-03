@@ -1,3 +1,5 @@
+# TODO remove
+
 #!/usr/bin/env Rscript
 
 # Plot JACUSA2 score and existing modification info as a heatmap
@@ -472,11 +474,6 @@ get_plot_args <- function(df, opts) {
     coverage_xlab <- "reads"
   }
 
-  # TODO
-  NULL -> no max score
-  -1 -> within contrast
-  -2 -> per contrast, all read_types
-  -3 -> overall, all read_types
   harmonize_scaling <- opts$options$harmonize_scaling
   if (!is.null(harmonize_scaling)) {
     max_scores <- read.table(opts$options$max_scores, header = TRUE, sep = "\t")

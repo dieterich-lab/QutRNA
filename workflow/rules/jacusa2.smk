@@ -11,6 +11,9 @@ global REF_FASTA
 global SCORES
 
 
+MAX_SCORES = "results/jacusa2/max_scores.tsv"
+
+
 def _jacusa2_input(cond_i, suffix=""):
   fname = f"results/bam/{{bam_type}}/{{sample}}.sorted.bam{suffix}"
   cond = f"COND{cond_i}"
@@ -126,7 +129,7 @@ def _params_config_scores():
 
 rule jacusa2_max_scores:
   input: _input_jacusa2_max_scores
-  output: "results/jacusa2/max_scores.tsv"
+  output: MAX_SCORES
   params: scores=_params_config_scores()
   run:
     dfs = []

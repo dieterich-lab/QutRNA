@@ -213,35 +213,84 @@ properties:
       required:
         - id
         - opts
-  heatmap_plots:
-    type: array
-    items:
-      type: object
-      properties:
-        id:
-          type: string
-        title:
-          type: string
-        group:
-          type: string
-          enum: ["isoacceptor", "isodecoder", "all"]
-        harmonize_scaling:
-          type: string
-          default: NONE
-          pattern: ^NONE|CONTRAST|FILTER|CONTRAST_FILTER|\d+(\.\d+)?$
-        trnas:
-          type: array
-          items:
+  plots:
+    read_length:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
             type: string
-        positions:
-          type: array
-          items:
+          opts:
             type: string
-        opts:
-          type: string
-      required:
-        - id
-        - group
+        required:
+          - id
+          - opts
+    record_count:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          opts:
+            type: string
+        required:
+          - id
+          - opts
+    multimapers:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          opts:
+            type: string
+        required:
+          - id
+          - opts
+    threshold_summary:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          opts:
+            type: string
+        required:
+          - id
+          - opts
+    heatmap:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          title:
+            type: string
+          group:
+            type: string
+            enum: ["isoacceptor", "isodecoder", "all"]
+          harmonize_scaling:
+            type: string
+            default: NONE
+            pattern: ^NONE|CONTRAST|FILTER|CONTRAST_FILTER|\d+(\.\d+)?$
+          trnas:
+            type: array
+            items:
+              type: string
+          positions:
+            type: array
+            items:
+              type: string
+          opts:
+            type: string
+        required:
+          - id
+          - group
   call_filtered:
     type: boolean
     default: false

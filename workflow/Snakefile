@@ -25,7 +25,7 @@ DefaultValidatingValidator = extend_with_default(Draft202012Validator)
 import yaml
 from snakemake.io import expand
 
-VERSION = "2.0.0-DEV-9"
+VERSION = "2.0.0-DEV-10"
 
 # validate schemas
 with open(workflow.basedir + "/schemas/config.yaml") as stream:
@@ -56,6 +56,7 @@ global REF_FASTA_REVERSED
 global CM
 global SPRINZL_MODE
 global SPRINZL
+global SEQ_TO_SPRINZL_FINAL
 
 ########################################################################################################################
 
@@ -72,15 +73,17 @@ def target_info():
   return targets
 
 def target_trna_plots():
+  """Heatmap targets"""
   targets = []
 
   bam_types = ["final"]
+  # extend bam types if desired
   if config["call_filtered"] and FILTERS_APPLIED:
     bam_types += [f"filtered-{f}" for f in FILTERS_APPLIED]
 
-  for conds in pep.config["qutrna2"]["contrasts"]:
-    cond1 = conds["cond1"]
-    cond2 = conds["cond2"]
+  for contrast in pep.config["qutrna2"]["contrasts"]:
+    cond1 = contrast["cond1"]
+    cond2 = contrast["cond2"]
 
     dname =  "results/plots/cond1~{cond1}/cond2~{cond2}/{plot_id}/bam~{bam_type}"
     for plot in config["heatmap_plots"]:
@@ -102,11 +105,14 @@ def target_all():
 
   return targets
 
+########################################################################################################################
+
 rule all:
   input: lambda wildcards: target_all() + target_info()
 
 ########################################################################################################################
 
+# TODO for overview
 #def target_include():
 #  targets = [
 #    REF_FASTA
@@ -157,7 +163,8 @@ if READS == "fastq":
 
 if COORDS == "sprinzl":
   def target_sprinzl():
-    return ["results/seq_to_sprinzl_filtered.tsv", ]
+    return [
+      SEQ_TO_SPRINZL_FINAL,]
 
 rule sprinzl:
   input: target_sprinzl() + target_info()
@@ -166,10 +173,12 @@ rule sprinzl:
 
 def target_read_feature_plots():
   targets = []
+
   # default overview plots of read features
   types = ["condition", "sample", "subsample"]
   targets.extend(expand("results/plots/record_count/{type}.pdf", type=types))
   targets.extend(expand("results/plots/read_length/{type}.pdf", type=types))
+
   # custom read feature specific plots
   for feature in ["read_length", "record_count"]:
     for plot in config.get(f"{feature}_plots", []):
@@ -182,4 +191,3 @@ def target_read_feature_plots():
 
 rule read_feature_plots:
   input: target_read_feature_plots() + target_info()
-

@@ -13,8 +13,11 @@ option_list <- list(
               type = "character",
               help = "Breaks separaterd by ','"),
   make_option(c("-t", "--type"),
+            type = "character",
+            help = "sample, subsample, or condition"),
+  make_option(c("-i", "--ignore_read_type"),
               type = "character",
-              help = "sample, subsample, or condition"),
+              help = "Ignore read type"),
   make_option(c("-w", "--width"),
               type = "character",
               default = NA,
@@ -42,6 +45,12 @@ df <- read.table(opts$args,
                  sep = "\t",
                  header = TRUE)
 
+if (!is.null(opts$options$ignore_read_type)) {
+  ignore_read_type <- strsplit(opts$options$ignore_read_type, ",")[[1]]
+  df <- df |>
+    filter(!read_type %in% ignore_read_type)
+}
+
 df <- df |>
   summarise(count = sum(count), .by = c(read_length, all_of(opts$options$type), base_calling, read_type)) |>
   mutate(read_type = factor(read_type, levels = unique(read_type), ordered = TRUE),
@@ -61,12 +70,12 @@ p <- df |>
 
 
 if (is.null(opts$options$limits)) {
-  limits = NULL
+  limits <- NULL
 } else {
   limits <- strsplit(opts$options$limits, ",")[[1]]
 }
 if (is.null(opts$options$breaks)) {
-  breaks = waiver()
+  breaks <- waiver()
 } else {
   breaks <- strsplit(opts$options$breaks, ",")[[1]]
 }
