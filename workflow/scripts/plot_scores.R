@@ -128,16 +128,16 @@ df$name <- factor(df$name, levels = unique(df$name), ordered = TRUE)
 #geom_point(position = position_jitter(seed = 1, width = 0.2)) +
 #filter(amino_acid %in% amino_acids) |>
 
-i <- df$amino_acid %in% amino_acids
+i <- is.element(df$amino_acid, amino_acids)
 
 df <- df |>
   mutate(
     trna_label2 = case_when(
-      amino_acid %in% amino_acids ~ trna_label,
-      amino_acid %nin% amino_acids ~ "other"),
+      is.element(amino_acid, amino_acids ~ trna_label),
+      !is.element(amino_acid, amino_acids ~ "other")),
     amino_acid_label = case_when(
-      amino_acid %in% amino_acids ~ amino_acid,
-      amino_acid %nin% amino_acids ~ "other"),
+      is.element(amino_acid, amino_acids ~ amino_acid),
+      !is.element(amino_acid, amino_acids ~ "other"),
     amino_acid_label = factor(amino_acid_label, levels = c(amino_acids, "other"), ordered = TRUE),
     trna_label2 = factor(trna_label2, levels = c("other", rev(unique(trna_label))), ordered = TRUE),
     name_label = gsub("-", "\n", name),

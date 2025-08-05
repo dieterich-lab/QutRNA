@@ -384,7 +384,7 @@ parse_result <- function(r, stats) {
   df <- cbind(df, tmp)
   
   for (col in pick_cols(stats$stat)) {
-    if (!col %in% colnames(df)) {
+    if (!is.element(col, colnames(df))) {
       f <- PARSE_COLS[[col]]
       if (is.null(f)) {
         print(col)
@@ -397,7 +397,7 @@ parse_result <- function(r, stats) {
   for (i in rownames(stats)) {
     new_col <- stats[i, "new_col"]
     stat <- stats[i, "stat"]
-    if (!new_col %in% colnames(df)) {
+    if (!is.element(new_col, colnames(df))) {
       df[, new_col] <- with(df, eval(parse(text = stat)))
     }
   }

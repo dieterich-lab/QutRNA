@@ -86,13 +86,13 @@ estimate_coverage_info <- function(df, condition1, condition2) {
 
 remove_missing_positions <- function(df) {
   tbl <- table(df$position, is.na(df$ref))
-  if ("FALSE" %in% colnames(tbl)) {
+  if (is.element("FALSE", colnames(tbl))) {
     tbl[, "FALSE"] == 0
     i <- tbl[, "FALSE"] == 0
     if (any(i)) {
       missing_positions <- rownames(tbl[i, ])
       df <- df |>
-        filter(!position %in% missing_positions)
+        filter(!is.element(position, missing_positions))
     }
   }
 
@@ -159,7 +159,7 @@ plot_coverage <- function(coverage_summary, xlab = "reads") {
           legend.direction = "vertical",
           axis.title.y = element_blank())
 
-  if (unique(coverage_summary$replicate) %>% length() == 1) {
+  if (unique(coverage_summary$replicate) |> length() == 1) {
     p <- p + geom_col(position = position_dodge2())
   } else {
     p <- p + geom_point(position = position_dodge2(width = 0.5), size = rel(.75))
@@ -230,7 +230,7 @@ plot_heatmap <- function(df, xlab = "position", harmonize_scaling = NULL, title 
   }
     
   rel_size <- 1.7
-  show_mods <- "mod_label" %in% colnames(df)
+  show_mods <- is.element("mod_label", colnames(df))
   if (opts$options$show_ref && show_mods) {
     df <- df |>
       mutate(combined_label = paste0(ref, mod_label))
@@ -271,7 +271,7 @@ plot_combined <- function(df, coverage_summary, plot_args) {
       theme(axis.text.y = element_blank())
   }
   
-  if ("mod_label" %in% colnames(df) && any(df$mod_label != "")) {
+  if (is.element("mod_label", colnames(df)) && any(df$mod_label != "")) {
     ncol <- ncol + 1
     p <- p | plot_mod_table(df)
   }
@@ -646,7 +646,7 @@ if (!is.null(opts$options$modmap)) {
   stopifnot(file.exists(opts$options$modmap))
 }
 
-stopifnot(opts$options$position_column %in% c("sprinzl", "seq_position"))
+stopifnot(is.element(opts$options$position_column, c("sprinzl", "seq_position")))
 
 if (!is.null(opts$options$mod_abbrevs)) {
   stopifnot(!is.null(opts$options$modmap))
@@ -657,9 +657,9 @@ if (!is.null(opts$options$mod_abbrevs)) {
 # read process JACUSA2 scores
 df <- read.table(opts$args, sep = "\t", header = TRUE)
 # ensure chosen columns are present in data
-stopifnot(opts$options$position_column %in% colnames(df))
-stopifnot(opts$options$score_column %in% colnames(df))
-stopifnot("seq_position" %in% colnames(df))
+stopifnot(is.element(opts$options$position_column, colnames(df)))
+stopifnot(is.element(opts$options$score_column, colnames(df)))
+stopifnot(is.element("seq_position", colnames(df)))
 
 # remove 5' adapter, if any
 if (!is.null(opts$options$five_adapter)) {
@@ -684,7 +684,7 @@ if (opts$options$position_column == "sprinzl") {
 if (!is.null(opts$options$positions)) {
   positions <- strsplit(opts$options$position, ",") |>
     unlist()
-  i <- df[[opts$options$position_column]] %in% positions
+  i <- is.element(df[[opts$options$position_column]], positions)
   if (any(i)) {
     df <- df[i, ]
   }
@@ -703,7 +703,7 @@ df <- add_trna_details(df)
 if (!is.null(opts$options$amino_acids)) {
   amino_acids <- strsplit(opts$options$amino_acids, ",") |>
     unlist()
-  df <- df[df$amino_acid %in% amino_acids, ]
+  df <- df[is.element(df$amino_acid, amino_acids), ]
 }
 
 # hide/flag some positions
@@ -749,7 +749,7 @@ if (!is.null(opts$options$estimate_coverage)) {
 }
 # keep only observed trnas
 coverage_summary <- coverage_summary |>
-  filter(trna %in% unique(df$trna))
+  filter(is.element(trna, unique(df$trna)))
 coverage_summary <- add_trna_details(coverage_summary)
 coverage_summary$trna_label <- trna_label(coverage_summary, opts$options$remove_prefix)
 

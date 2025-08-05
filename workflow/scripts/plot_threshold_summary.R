@@ -65,7 +65,7 @@ cutoffs$sample_desc <- format_sample_desc(cutoffs)
 scores <- read.table(opts$args,
                  sep = "\t",
                  header = TRUE) |>
-  filter(read_type %in% read_types) |>
+  filter(is.element(read_type, read_types)) |>
   mutate(base_calling = factor(base_calling, levels = c("pass", "fail", "merged", "unknown"), ordered = TRUE),
          category = case_match(
            read_type,

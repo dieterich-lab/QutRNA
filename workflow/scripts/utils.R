@@ -1,5 +1,5 @@
 flag_positions <- function(df, flag_positions) {
-  i <- df$trna_coords %in% flag_positions
+  i <- is.element(df$trna_coords, flag_positions)
   if (any(i)) {
     df[i, "score"] <- NA
     df[i, "flag_position"] <- TRUE
@@ -10,7 +10,7 @@ flag_positions <- function(df, flag_positions) {
 
 
 mark_positions <- function(df, mark_positions) {
-  i <- df$trna_coords %in% mark_positions
+  i <- is.element(df$trna_coords, mark_positions)
   if (any(i)) {
     df[i, "mark_position"] <- TRUE
   }
@@ -57,13 +57,13 @@ remove_3adapter <- function(df, ref_fasta, three_adapter) {
 
 remove_missing_positions <- function(df) {
   tbl <- table(df$position, is.na(df$ref))
-  if ("FALSE" %in% colnames(tbl)) {
+  if (is.element("FALSE", colnames(tbl))) {
     tbl[, "FALSE"] == 0
     i <- tbl[, "FALSE"] == 0
     if (any(i)) {
       missing_positions <- rownames(tbl[i, ])
       df <- df |>
-        filter(!position %in% missing_positions)
+        filter(!is.element(position, missing_positions))
     }
   }
   
@@ -109,7 +109,7 @@ add_missing_values <- function(df, cols = c("trna_label", "position")) {
 
 process_sprinzl_coords <- function(df, sprinzl_fname, hide_varm, show_introns, intron_start = "37") {
   # remove positions with no sprinzl mapping
-  df <- df[!df$sprinzl %in% c("-", "."), ] # - -> gap, . unmatched
+  df <- df[!is.element(df$sprinzl, c("-", ".")), ] # - -> gap, . unmatched
   sprinzl_coords <- read.table(sprinzl_fname, header = FALSE)$V1
 
   if (hide_varm) {
@@ -153,7 +153,7 @@ process_seq_coords <- function(df) {
 
 process_sprinzl_coords <- function(df, sprinzl_fname, hide_varm, show_introns, intron_start = "37") {
   # remove positions with no sprinzl mapping
-  df <- df[!df$sprinzl %in% c("-", "."), ] # - -> gap, . unmatched
+  df <- df[!is.element(df$sprinzl, c("-", ".")), ] # - -> gap, . unmatched
   sprinzl_coords <- read.table(sprinzl_fname, header = FALSE)$V1
   
   if (hide_varm) {
@@ -234,10 +234,10 @@ add_mod_abbrevs <- function(df, mod_abbrevs_fname) {
 
 add_mod_label <- function(df) {
   df$mod_label <- ""
-  if ("mod" %in% colnames(df)) {
+  if (is.element("mod", colnames(df))) {
     df$mod_label <- df$mod
   }
-  if ("mod_abbrev" %in% colnames(df)) {
+  if (is.element("mod_abbrev", colnames(df))) {
     i <- is.na(df$mod_abbrev) || df$mod_abbrev != ""
     df$mod_label[i] <- df$mod_abbrev[i]
   }
@@ -284,4 +284,39 @@ save_plot <- function(p, output, width = NA, height = NA) {
   if (!opts$options$no_crop) {
     knitr::plot_crop(output, quiet = FALSE)
   }
+}
+
+
+########################################################################################################################
+
+# CLI
+# stopifnot
+# serialize, des
+
+custom_ggsave_test <- function(opts) {
+  tryCatch(
+    {
+      l <- eval(parse(text=opts))
+      stopifnot(!is.null(l))
+      return(l)
+    }, error = function(msg){
+      
+    })
+}
+
+custom_ggsave_options <- function() {
+  return(
+    make_option(c("--ggsave_opts"),
+                type = "character",
+                help = "Text representation of list."))
+
+custom_ggsave <- function(filename, plot, opts) {
+  ggsave_opts <- list(
+    "filename" = filename,
+    "plot" = plot
+  )
+  if (!is.null(opts$options$ggsave_opts)) {
+    # use opts$options$ggsave
+  }
+  do.call(ggsave, ggsave_opts)
 }

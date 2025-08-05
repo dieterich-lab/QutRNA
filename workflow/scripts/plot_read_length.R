@@ -39,7 +39,7 @@ opts <- parse_args(
 )
 
 stopifnot(length(opts$args) == 1)
-stopifnot(opts$options$type %in% c("condition", "sample", "subsample"))
+stopifnot(is.element(opts$options$type, c("condition", "sample", "subsample")))
 
 df <- read.table(opts$args,
                  sep = "\t",
@@ -48,7 +48,7 @@ df <- read.table(opts$args,
 if (!is.null(opts$options$ignore_read_type)) {
   ignore_read_type <- strsplit(opts$options$ignore_read_type, ",")[[1]]
   df <- df |>
-    filter(!read_type %in% ignore_read_type)
+    filter(!is.element(read_type, ignore_read_type))
 }
 
 df <- df |>
