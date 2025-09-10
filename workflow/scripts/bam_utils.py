@@ -1,10 +1,13 @@
 import click
 import enum
+
+import pandas as pd
 import pysam
+import os
 import sys
 import gzip
 from contextlib import nullcontext
-from collections import Counter
+from collections import Counter, defaultdict
 from Bio import SeqIO
 
 
@@ -101,20 +104,19 @@ def add_hits(bam, tag, output):
         for record in records:
             record.tags += [(tag, n)]
             out_samfile.write(record)
+        records.clear()
 
     # container for multimappers
     multimappers = []
     # collect multimappers by counting consecutive records with identical read names
     for record in in_samfile:
-        if not multimappers or multimappers[0].qname == record.query_name:
+        if not multimappers or multimappers[0].query_name == record.query_name:
             multimappers.append(record)
         else:
             write_records(multimappers)
-            multimappers.clear()
             multimappers.append(record)
     if multimappers:
         write_records(multimappers)
-        multimappers.clear()
 
     # close handler
     out_samfile.close()
@@ -144,7 +146,7 @@ def count_tag(bam, tag, column, output):
 @cli.command()
 @click.option("--min-as", type=int)
 @click.argument("bam", type=click.Path(exists=True))
-def best_alignments(min_as, bam):
+def best_alignment(min_as, bam):
     """Pick the best alignments for each read"""
 
     # io
@@ -169,15 +171,17 @@ def best_alignments(min_as, bam):
             continue
 
         if not qname or qname == record.query_name:
-            records.setdefault(alignment_score, [].append(record))
+            records.setdefault(alignment_score, []).append(record)
             qname = record.query_name
         else:
             write_records(records, out_samfile)
             records.clear()
-            records.setdefault(alignment_score, [].append(record))
+            records.setdefault(alignment_score, []).append(record)
             qname = record.query_name
     if records:
         write_records(records, out_samfile)
+        records.clear()
+        qname = None
 
     # close handlers
     out_samfile.close()
@@ -234,6 +238,69 @@ def get_overlap(start1, end1, start2, end2):
 
 
 @cli.command()
+@click.option("--trna-annotation", type=click.Path(exists=True))
+@click.option("--five-adapter", type=int, default=0)
+@click.option("--three-adapter", type=int, default=0)
+@click.option("-o", "--output", default="-", type=click.Path())
+@click.argument("BAM", type=click.Path(exists=True))
+def overlap_profile(bam, trna_annotation, five_adapter, three_adapter, output):
+    in_samfile = pysam.AlignmentFile(pysam_stdin(bam), "rb")
+
+    trna_annotation = pd.read_csv(trna_annotation, sep="\t")
+    trna_annotation["trna_length"] = trna_annotation["seq"].str.len()
+    trna_lengths = trna_annotation[["trna", "trna_length"]].set_index("trna").to_dict()["trna_length"]
+
+    def overlap_five_adapter(pos):
+        return pos >= 0 and pos < five_adapter
+
+    def overlap_trna(pos, trna_length):
+        return pos >= 0 and five_adapter <= pos < five_adapter + trna_length
+
+    def overlap_three_adapter(pos, trna_length):
+        return pos >= 0 and five_adapter + trna_length <= pos
+
+    def helper(record):
+        ov = []
+        trna_length = trna_lengths[record.reference_name]
+        if overlap_five_adapter(record.reference_start):
+            ov.append("5")
+            if overlap_three_adapter(record.reference_end - 1, trna_length):
+                ov.append("tRNA")
+                ov.append("3")
+            elif overlap_trna(record.reference_end - 1, trna_length):
+                ov.append("tRNA")
+        elif overlap_trna(record.reference_start, trna_length):
+            ov.append("tRNA")
+            if overlap_trna(record.reference_end - 1, trna_length):
+                ov.append("3")
+        elif overlap_three_adapter(record.reference_start, trna_length):
+            ov.append("3")
+
+        if not ov:
+            raise Exception(record)
+
+        return "-".join(ov)
+
+    # count read overlaps per trna and positions
+    counter = defaultdict(lambda : defaultdict(lambda : Counter()))
+    for record in in_samfile:
+        read_overlap = helper(record)
+        for pos in range(record.reference_start, record.reference_end):
+            counter[record.reference_name][pos][read_overlap] += 1
+
+    # write output
+    with open(output, "w") as fout:
+        header = "\t".join(["trna", "seq_position", "read_overlap", "count"])
+        fout.write(f"{header}\n")
+        for trna in counter.keys():
+            for pos in counter[trna].keys():
+                for read_overlap in counter[trna][pos].keys():
+                    line = "\t".join([trna, str(pos), read_overlap, str(counter[trna][pos][read_overlap])])
+                    fout.write(f"{line}\n")
+
+
+
+@cli.command()
 @click.option("--fasta", type=click.Path(exists=True))
 @click.option("--five-adapter", type=int, default=0)
 @click.option("--stats", required=True, type=click.Path())
@@ -260,7 +327,7 @@ def adapter_overlap(bam,
 
     # create header
     stats_file = gzip.open(stats, "wb")
-    header = ["read_id", "ref", "aln_start", "aln_end", "aln_score", "cigar", "ov_5", "ov_trna", "ov_3"]
+    header = ["read_id", "ref", "aln_start", "aln_end", "aln_score", "cigar"]
     if five_adapter > 0 and five_adapter_overlap > 0:
         header.append("five_adapter_ov")
     if three_adapter > 0 and three_adapter_overlap > 0:
@@ -271,8 +338,8 @@ def adapter_overlap(bam,
     stats_file.write(f"{line}\n".encode())
 
     for record in in_samfile:
-        aln_start = record.query_alignment_start
-        aln_end = record.query_alignment_end - 1
+        aln_start = record.reference_start
+        aln_end = record.reference_end - 1
 
         # container for values
         values = [record.query_name,
@@ -296,7 +363,7 @@ def adapter_overlap(bam,
         trna_length = len(trnas[record.reference_name].seq) - five_adapter - three_adapter
         ov = get_overlap(five_adapter, five_adapter + trna_length - 1, aln_start, aln_end)
         if trna_overlap > 0:
-            if ov / trna_length < five_adapter_overlap:
+            if ov / trna_length < trna_overlap:
                 failed = True
             values.append(str(ov / trna_length))
 
@@ -385,7 +452,7 @@ def do_trim_cigar(record):
 @click.option("--min-alignment-length", type=int)
 @click.option("--max-alignment-length", type=int)
 @click.option("--stats", type=str)
-@click.option("-o", "--output", type=click.Path())
+@click.option("-o", "--output", type=str)
 @click.argument("BAM", type=str)
 def filter(bam,
            trim_cigar,
@@ -414,12 +481,12 @@ def filter(bam,
     def do_check_read_length(record, min_length, max_length):
         read_length = len(record.query_sequence)
 
-        if min_length and min_length < read_length:
+        if min_length and min_length > read_length:
             counter["read_length"] += 1
 
             return False
 
-        if max_length and max_length > read_length:
+        if max_length and max_length < read_length:
             counter["read_length"] += 1
 
             return False
@@ -427,14 +494,14 @@ def filter(bam,
         return True
 
     def do_check_alignment_length(record, min_length, max_length):
-        aln_length = record.query_alignment_length
+        aln_length = record.reference_length
 
-        if min_length and min_length < aln_length:
+        if min_length and min_length > aln_length:
             counter["aln_length"] += 1
 
             return False
 
-        if max_length and max_length > aln_length:
+        if max_length and max_length < aln_length:
             counter["aln_length"] += 1
 
             return False
@@ -470,12 +537,14 @@ def filter(bam,
     for record in in_samfile:
         counter["input"] += 1
 
+        valid = True
         for task in tasks:
             if not task(record):
-                continue
-
-        out_samfile.write(record)
-        counter["output"] += 1
+                valid = False
+                break
+        if valid:
+            out_samfile.write(record)
+            counter["output"] += 1
 
     # print out statistics
     if stats:
@@ -490,21 +559,20 @@ def filter(bam,
 
 @cli.command()
 @click.option("-o", "--output", type=str)
-@click.option("-t", "--tag", type=str)
+@click.option("-s", "--simple-count", is_flag=True, default=False)
 @click.argument("BAM", type=click.Path(exists=True))
-def count_multimapper(bam, tag, output):
+def count_records(bam, simple_count, output):
     """Count multimapper"""
 
     in_samfile = pysam.AlignmentFile(pysam_stdin(bam), "rb")
     counter = Counter()
+    total_records = 0
 
-    if tag:
-        for record in in_samfile:
-            counter[record.get_tag(tag)] += 1
-    elif in_samfile.header["HD"]["SO"] == "coordinate":
+    if in_samfile.header["HD"]["SO"] == "queryname":
         multimappers = []
         for record in in_samfile:
-            if not multimappers or multimappers[0].qname == record.query_name:
+            total_records += 1
+            if not multimappers or multimappers[0].query_name == record.query_name:
                 multimappers.append(record)
             else:
                 counter[len(multimappers)] += 1
@@ -516,14 +584,91 @@ def count_multimapper(bam, tag, output):
     else:
         read2hits = Counter()
         for record in in_samfile:
+            total_records += 1
             read2hits[record.query_name] += 1
         for hits in read2hits.values():
             counter[hits] += 1
 
-    with open(output) as f:
-        f.write(f"hits\tcount\n")
-        for key, value in counter.items():
-            f.write(f"{key}\t{value}\n")
+
+    dname = os.path.dirname(output)
+    if dname:
+        os.makedirs(dname, exist_ok=True)
+    if simple_count:
+        unique = counter[1]
+        multiple = counter.total() - unique
+        with open(output, "w") as f:
+            f.write(f"unique_reads\tmultimapper_reads\treads\ttotal_records\n")
+            f.write(f"{unique}\t{multiple}\t{counter.total()}\t{total_records}\n")
+    else:
+        with open(output, "w") as f:
+            f.write(f"number_hits\trecords\n")
+            for key, value in counter.items():
+                f.write(f"{key}\t{value}\n")
+
+
+@cli.command()
+@click.option("-o", "--output", type=str)
+@click.argument("BAM", type=click.Path(exists=True))
+def count_record_length(bam, output):
+    """Count read length"""
+
+    in_samfile = pysam.AlignmentFile(pysam_stdin(bam), "rb")
+    total_records = 0
+
+    unique_rl = Counter()
+    multimapper_rl = Counter()
+    record_rl = Counter()
+
+    def count_rl(multimappers):
+        if len(multimappers) == 1:
+            unique_rl[len(record.query_sequence)] += 1
+        elif len(multimappers) > 1:
+            multimapper_rl[len(record.query_sequence)] += 1
+        record_rl[len(record.query_sequence)] += len(multimappers)
+
+    if in_samfile.header["HD"]["SO"] == "queryname":
+        multimappers = []
+        for record in in_samfile:
+            total_records += 1
+            if not multimappers or multimappers[0].query_name == record.query_name:
+                multimappers.append(record)
+            else:
+                count_rl(multimappers)
+                multimappers.clear()
+                multimappers.append(record)
+        if multimappers:
+            count_rl(multimappers)
+            multimappers.clear()
+    else:
+        read2hits = Counter()
+        read2length = {}
+        for record in in_samfile:
+            total_records += 1
+            read2hits[record.query_name] += 1
+            if not record.query_name in read2length:
+                read2length[record.query_name] = len(record.query_sequence)
+        for query_name, read_length in read2length.items():
+            hits = read2hits[query_name]
+            if hits == 1:
+                unique_rl[read_length] += 1
+            elif hits > 1:
+                multimapper_rl[read_length] += 1
+            record_rl[read_length] += hits
+
+    dname = os.path.dirname(output)
+    if dname:
+        os.makedirs(dname, exist_ok=True)
+    with (open(output, "w") as f):
+        f.write(f"read_length\tunique_reads\tmultimapper_reads\treads\trecords\n")
+        for read_length in record_rl.keys():
+            read_lengths = [
+                str(read_length),
+                str(unique_rl[read_length]),
+                str(multimapper_rl[read_length]),
+                str(unique_rl[read_length] + multimapper_rl[read_length]),
+                str(record_rl[read_length])]
+            line = "\t".join(read_lengths)
+            f.write(f"{line}\n")
 
 
 if __name__ == '__main__':

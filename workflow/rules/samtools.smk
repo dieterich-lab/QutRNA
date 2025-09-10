@@ -34,7 +34,7 @@ rule samtools_stats:
   """
 
 
-SAMTOOLS_STATS_TYPE2COLS = {
+SAMTOOLS_FEATURES_TYPE2COLS = {
   "RL": ["read_length", "count"],
 }
 
@@ -42,7 +42,7 @@ rule samtools_cut_stats:
   input: "{prefix}_stats/samtools.txt"
   output: "{prefix}_stats/samtools_{type}.txt"
   conda: "qutrna2"
-  params: cols=lambda wildcards: "\t".join(SAMTOOLS_STATS_TYPE2COLS[wildcards.type])
+  params: cols=lambda wildcards: "\t".join(SAMTOOLS_FEATURES_TYPE2COLS[wildcards.type])
   log: "logs/samtools_cut_stats/{prefix}/{type}.log"
   shell: """
     (
@@ -52,13 +52,13 @@ rule samtools_cut_stats:
   """
 
 
-rule samtools_coverage:
+rule samtools_read_length:
   input: "{prefix}.sorted.bam"
-  output: "{prefix}_stats/samtools_coverage.txt"
+  output: "{prefix}_stats/read_length.txt"
   conda: "qutrna2"
-  log: "logs/samtools/coverage/{prefix}.log"
+  log: "logs/samtools/read_length/{prefix}.log"
   shell: """
-    samtools coverage {input:q} > {output:q} 2> {log:q}
+    python {workflow.basedir}/scripts/bam_utils.py count-record-length --output {output:q} {input:q} 2> {log:q}
   """
 
 
@@ -68,7 +68,7 @@ rule samtools_record_count:
   conda: "qutrna2"
   log: "logs/samtools/record_count/{prefix}.log"
   shell: """
-    samtools view -c {input:q} | awk 'BEGIN {{ print "records" }} ; {{ print }} '> {output:q} 2> {log:q}
+    python {workflow.basedir}/scripts/bam_utils.py count-records --simple-count --output {output:q} {input:q} 2> {log:q}
   """
 
 

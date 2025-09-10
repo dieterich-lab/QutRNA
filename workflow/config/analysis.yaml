@@ -36,21 +36,22 @@ record_count_plots:
   - id:
     opts:
 
-heatmap_plots:
-  # default plots
-  - id: isodecoder # unique id for plots. Will be available under results/plots/{id}
-    trnas: isodecoder # how to group tRNAs in plots: isodecoder, isoacceptor
-    opts: # CLI options to scripts/plot_heatmap.R
-    position: # restrict plots to positions, e.g. [34,35,36]
-  - id: isoacceptor
-    trnas: isoacceptor
-  # extended plots
-  - id: isodecoder_extended
-    trnas: isodecoder
-    opts: "--sort --show_introns --show_coverage --title 'isodecoder: {amino_acid}-{anti_codon}'"
-  - id: isoacceptor_extended
-    trnas: isoacceptor
-    opts: "--sort --show_introns --show_coverage --title 'isoacceptor: {amino_acid}'"
+plots:
+  heatmap:
+    # default plots
+    - id: isodecoder # unique id for plots. Will be available under results/plots/{id}
+      trnas: isodecoder # how to group tRNAs in plots: isodecoder, isoacceptor
+      opts: # CLI options to scripts/plot_heatmap.R
+      position: # restrict plots to positions, e.g. [34,35,36]
+    - id: isoacceptor
+      trnas: isoacceptor
+    # extended plots
+    - id: isodecoder_extended
+      trnas: isodecoder
+      opts: "--sort --show_introns --show_coverage --title 'isodecoder: {amino_acid}-{anti_codon}'"
+    - id: isoacceptor_extended
+      trnas: isoacceptor
+      opts: "--sort --show_introns --show_coverage --title 'isoacceptor: {amino_acid}'"
 
 # TODO adjust
 include: # determines how data is included in the workflow: link or copy. Check schemas/config (include) for default values.

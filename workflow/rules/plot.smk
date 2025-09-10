@@ -3,7 +3,7 @@ from snakemake.io import directory, unpack
 global DEFAULT_SCORE
 global REF_FASTA
 global SCORES
-global SPRINZL
+global SPRINZL_LABELS
 global TRNA_ANNOTATION
 global MAX_SCORES
 
@@ -19,7 +19,7 @@ def get_plot(plot_type, plot_id):
     if plot["id"] == plot_id:
       return plot
 
-  raise KeyError(f"Unknown plot_id: {plot_id}")
+  return {}
 
 
 def _plot_heatmap_opts(wildcards, input):
@@ -32,18 +32,13 @@ def _plot_heatmap_opts(wildcards, input):
       "sprinzl": "sprinzl"}
   opts["--position_column"] = col_mapping[pep.config["qutrna2"]["coords"]]
 
-  opts[f"--group"] =  plot["group"]
+  if "group" in plot:
+    opts[f"--group"] =  plot["group"]
   if plot.get("title"):
     opts["--title"] = f"'{plot['title']}'"
 
-  abbrevs = pep.config["qutrna2"].get("mods", {}).get("abbrevs")
-  if abbrevs:
-    opts["--modmap"] = abbrevs
-
   linker5 = str(pep.config["qutrna2"]["linker5"])
   opts["--five_adapter"] = linker5
-  if "ref_fasta_prefix" in pep.config["qutrna2"]:
-    opts["--remove_prefix"] = pep.config["qutrna2"]["ref_fasta_prefix"]
 
   for contrast in pep.config["qutrna2"]["contrasts"]:
     if wildcards.COND1 == contrast["cond1"] and wildcards.COND2 == contrast["cond2"] and "flag" in contrast:
@@ -52,23 +47,18 @@ def _plot_heatmap_opts(wildcards, input):
 
   score = DEFAULT_SCORE
   if "score" in plot:
-    score = plot["score"]
+    score = plot.get("score", DEFAULT_SCORE)
   opts["--score_column"] = score.split("::")[0]
   if "sprinzl" in pep.config["qutrna2"]:
     opts["--sprinzl"] = input.sprinzl
 
-  if plot["harmonize_scaling"] != "NONE":
-    if plot["harmonize_scaling"] == "CONTRAST":
-      harmonize = "-1"
-    elif plot["harmonize_scaling"] == "FILTER":
-      harmonize = "-2"
+  if "abbrevs" in pep.config["qutrna2"].get("mods", {}):
+    opts["--abbrevs"] = input.abbrevs
+
+  if plot.get("harmonize_scaling"):
+    if plot["harmonize_scaling"] in ["CONTRASTS", "OVERALL"]:
       opts["--max_scores"] = input.max_scores
-    elif plot["harmonize_scaling"] == "CONTRAST_FILTER":
-      harmonize = "-3"
-      opts["--max_scores"] = input.max_scores
-    else:
-      harmonize = str(plot["harmonize_scaling"])
-    opts["--harmonize_scaling"] = harmonize
+    opts["--harmonize_scaling"] = plot["harmonize_scaling"]
 
   s = " ".join([f"{key}={value}" for key, value in opts.items()])
   if "opts" in plot and plot["opts"]:
@@ -79,39 +69,41 @@ def _plot_heatmap_opts(wildcards, input):
 
 def _plot_heatmap_input(wildcards):
   plot = get_plot("heatmap", wildcards.plot_id)
-
-  d = {
+  input = {
     "scores": f"results/jacusa2/cond1~{{COND1}}/cond2~{{COND2}}/bam~{{bam_type}}/{SCORES}",
-    "fasta": REF_FASTA,
     "trna_annotation": TRNA_ANNOTATION
   }
 
   if "sprinzl" in pep.config["qutrna2"]:
-    d["sprinzl"] = SPRINZL
+    input["sprinzl"] = SPRINZL_LABELS
 
-  if plot["harmonize_scaling"] == "FILTER" or plot["harmonize_scaling"] == "CONTRAST_FILTER":
-    d["max_scores"] = MAX_SCORES
+  if "abbrevs" in pep.config["qutrna2"].get("mods",{}):
+    global MOD_ABBREVS
 
-  return d
+    input["abbrevs"] = MOD_ABBREVS
+
+  if plot.get("harmonize_scaling", "") in ["CONTRASTS", "OVERALL"]:
+    input["max_scores"] = MAX_SCORES
+
+  return input
 
 
 rule plot_heatmap:
   input: unpack(_plot_heatmap_input)
-  output: directory("results/plots/cond1~{COND1}/cond2~{COND2}/{plot_id}/bam~{bam_type}")
+  output: dir=directory("results/plots/scores/cond1~{COND1}/cond2~{COND2}/{plot_id}/bam~{bam_type}")
   conda: "qutrna2"
   log: "logs/plot/heatmap/cond1~{COND1}/cond2~{COND2}/{plot_id}/bam~{bam_type}.log"
   params: opts=_plot_heatmap_opts,
           basedir=workflow.basedir
   shell: """
     ( export QUTRNA2="{params.basedir}"
-      mkdir -p {output} && \
+      mkdir -p {output.dir} && \
       Rscript {workflow.basedir}/scripts/plot_heatmap.R \
           --condition1 '{wildcards.COND1}' \
           --condition2 '{wildcards.COND2}' \
           --bam_type '{wildcards.bam_type}' \
-          --ref_fasta {input.fasta:q} \
           --trna_annotation {input.trna_annotation:q} \
-          --output_dir {output:q} \
+          --output_dir {output.dir:q} \
           {params.opts} \
           {input.scores:q} \
           ) 2> {log:q}
@@ -120,12 +112,14 @@ rule plot_heatmap:
 
 rule plot_record_count:
   input: "results/stats/record_count.txt"
-  output: "results/plots/record_count/{type}.pdf"
+  output: "results/plots/record_count/{FEATURE}.pdf"
   conda: "qutrna2"
-  log: "logs/plot/record_count/{type}.log"
+  log: "logs/plot/record_count/{FEATURE}.log"
+  params: basedir=workflow.basedir
   shell: """
+    export QUTRNA2="{params.basedir}"
     Rscript {workflow.basedir}/scripts/plot_record_count.R \
-         --type {wildcards.type} \
+         --type {wildcards.FEATURE} \
          --output {output:q} {input:q} \
          2> {log:q}
   """
@@ -134,8 +128,10 @@ rule plot_record_count_custom:
   output: "results/plots/record_count/custom/{plot_id}.pdf"
   conda: "qutrna2"
   log: "logs/plot/read_record_custom/{plot_id}.log"
-  params: opts=lambda wildcards: [plot.opts for plot in config["record_count_plots"] if plot["id"] == wildcards.plot_id][0]
+  params: opts= lambda wildcards: get_plot("record_count", wildcards.plot_id).get("opts",""),
+          basedir=workflow.basedir
   shell: """
+    export QUTRNA2="{params.basedir}"
     Rscript {workflow.basedir}/scripts/plot_record_count.R \
          {params.opts} \
          --output {output:q} {input:q} \
@@ -144,38 +140,29 @@ rule plot_record_count_custom:
 
 
 rule plot_read_length:
-  input: "results/stats/samtools_RL.txt"
-  output: "results/plots/read_length/{type}.pdf"
+  input: "results/stats/read_length.txt"
+  output: "results/plots/read_length/{FEATURE}.pdf"
   conda: "qutrna2"
-  log: "logs/plot/read_length/{type}.log"
+  log: "logs/plot/read_length/{FEATURE}.log"
+  params: basedir=workflow.basedir
   shell: """
+    export QUTRNA2="{params.basedir}"
     Rscript {workflow.basedir}/scripts/plot_read_length.R \
-         --type {wildcards.type} \
+         --type {wildcards.FEATURE} \
          --output {output:q} {input:q} \
          2> {log:q}
   """
 rule plot_read_length_custom:
-  input: "results/stats/samtools_RL.txt"
+  input: "results/stats/read_length.txt"
   output: "results/plots/read_length/custom/{plot_id}.pdf"
   conda: "qutrna2"
   log: "logs/plot/read_length_custom/{plot_id}.log"
-  params: opts=lambda wildcards: [plot.opts for plot in config["read_length_plots"] if plot["id"] == wildcards.plot_id][0]
+  params: opts=lambda wildcards: get_plot("read_length", wildcards.plot_id).get("opts", ""),
+          basedir=workflow.basedir
   shell: """
+    export QUTRNA2="{params.basedir}"
     Rscript {workflow.basedir}/scripts/plot_read_length.R \
          {params.opts} \
-         --output {output:q} {input:q} \
-         2> {log:q}
-  """
-
-
-# TODO test
-rule plot_multimapper:
-  input: "results/stats/multimapper.txt"
-  output: "results/plots/multimapper.pdf"
-  conda: "qutrna2"
-  log: "logs/plot/multimapper.log"
-  shell: """
-    Rscript {workflow.basedir}/scripts/plot_multimapper.R \
          --output {output:q} {input:q} \
          2> {log:q}
   """
@@ -187,9 +174,30 @@ rule plot_threshold_summary:
   output: "results/plots/alignment/threshold_summary.pdf"
   conda: "qutrna2"
   log: "logs/plot/threshold_summary.log"
-  params: bam_types=",".join(["mapped", "mapped-rev"])
+  params: bam_types=",".join(["mapped", "mapped-random"]),
+          basedir=workflow.basedir
   shell: """
+    export QUTRNA2="{params.basedir}"
     Rscript {workflow.basedir}/scripts/plot_threshold_summary.R \
+         --type {params.bam_types:q} \
+         --cutoff {input.cutoff:q} \
+         --output {output:q} \
+         {input.score:q} \
+         2> {log:q}
+  """
+rule plot_threshold_summary_custom:
+  input: score="results/stats/alignment_score.txt",
+    cutoff="results/stats/cutoff.txt"
+  output: "results/plots/alignment/threshold_summary/custom/{plot_id}.pdf"
+  conda: "qutrna2"
+  log: "logs/plot/threshold_summary_custom/{plot_id}.log"
+  params: opts=lambda wildcards: get_plot("threshold_summary", wildcards.plot_id).get("opts", ""),
+          bam_types=",".join(["mapped", "mapped-random"]),
+          basedir=workflow.basedir
+  shell: """
+    export QUTRNA2="{params.basedir}"
+    Rscript {workflow.basedir}/scripts/plot_threshold_summary.R \
+         {params.opts} \
          --type {params.bam_types:q} \
          --cutoff {input.cutoff:q} \
          --output {output:q} \

@@ -31,18 +31,31 @@ properties:
       qutrna2:
         type: object
         properties:
-          cm:
-            type: string
-          seq_to_sprinzl:
-            type: string
-          ref_fasta:
-            type: string
-          ref_fasta_prefix:
-            type: string
           coords:
             type: string
             enum: ["seq", "sprinzl"]
             description: Coordinate system
+            default: seq
+          sprinzl:
+            type: object
+            properties:
+              cm:
+                type: string
+              labels:
+                type: string
+              seq_to_sprinzl:
+                type: string
+              map_introns:
+                type: boolean
+                default: false
+              ignore_trnas:
+                type: string
+            default: {}
+          ref_fasta:
+            type: object
+            properties:
+              file:
+                type: string
           mods:
             type: object
             description: Known modifications
@@ -64,11 +77,6 @@ properties:
             description: Length of 3' linker
           trna_annotation:
             type: string
-          ignore_trnas:
-            type: array
-            uniqueItems: true
-            items:
-              type: string
           contrasts:
             type: array
             properties:
@@ -84,15 +92,12 @@ properties:
             required:
               - cond1
               - cond2
-        files:
-          - ref_fasta
-        default:
-          coords: sprinzl
         required:
-          - ref_fasta
           - linker5
           - linker3
+        default: {}
     required:
       - qutrna2
+    default: {}
 required:
   - samples

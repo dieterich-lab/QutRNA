@@ -2,14 +2,13 @@ from snakemake.io import directory, temp, glob_wildcards, expand
 
 
 global REF_FASTA
-global REF_FASTA_REVERSED
+global REF_FASTA_RANDOM
 global FASTQ_READS_INPUT
 
 
-##############################################################################
+########################################################################################################################
 # Use parasail to map and align reads but split reads set in to smaller
 # parts
-##############################################################################
 
 checkpoint parasail_split_reads:
   input: FASTQ_READS_INPUT
@@ -26,39 +25,53 @@ checkpoint parasail_split_reads:
 
 rule parasail_map_split_reads:
   input: fastq="results/fastq/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_split/part_{part}.fastq.gz",
-         ref_fasta= lambda wildcards: REF_FASTA if wildcards.ORIENT == "fwd" else REF_FASTA_REVERSED
-  output: temp("results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.sam")
-  log: "logs/parasail/map_split_reads/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.log"
+         ref_fasta= lambda wildcards: REF_FASTA if wildcards.ALIGNMENT == "real" else REF_FASTA_RANDOM
+  output: temp("results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split/part_{part}.bam")
+  log: "logs/parasail/map_split_reads/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split/part_{part}.log"
   conda: "qutrna2"
   threads: 1
-  params: parasail_opts=config["parasail"]["opts"]
+  params: parasail_opts=config["parasail"]["opts"],
+          pre=config["parasail"].get("pre", "")
   shell: """
-    parasail_aligner {params.parasail_opts} \
-                      -t {threads} \
-                      -O SAMH \
-                      -f {input.ref_fasta:q} \
-                      -g {output:q} \
-                      -q {input.fastq:q} 2> {log:q}
+    (
+      {params.pre}
+      parasail_aligner {params.parasail_opts} \
+                        -t {threads} \
+                        -O SAMH \
+                        -f {input.ref_fasta:q} \
+                        -g {output:q} \
+                        -q {input.fastq:q}
+    ) 2> {log:q}
+  """
+
+
+rule samtools_sam_to_bam:
+  input: "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split/part_{part}.sam",
+  output: "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split/part_{part}.bam",
+  log: "logs/samtools_sam_to_bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split/part_{part}.log"
+  benchmark: "benchmarks/sam_to_bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split/part_{part}.txt"
+  conda: "qutrna2"
+  shell: """
+    samtools view -b -o {output:q} -F 4 {input:q} 2> {log:q}
   """
 
 
 rule parasail_map_split_postprocess:
-  input: sam="results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.sam",
-         ref=lambda wildcards: REF_FASTA if wildcards.ORIENT == "fwd" else REF_FASTA_REVERSED
-  output: temp("results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.bam")
-  log: "logs/parasail/map_split_postprocess/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.bam"
-  benchmark: "benchmarks/parasail/map_split_postprocess/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split/part_{part}.tsv"
+  input: bam="results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split/part_{part}.bam",
+         ref=lambda wildcards: REF_FASTA if wildcards.ALIGNMENT == "real" else REF_FASTA_RANDOM
+  output: temp("results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split/part_{part}.sorted.bam")
+  log: "logs/parasail/map_split_postprocess/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split/part_{part}.bam"
+  benchmark: repeat("benchmarks/parasail/map_split_postprocess/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split/part_{part}.txt", config.get("_benchmark_repeats", 1))
   conda: "qutrna2"
   params:
-    min_aln_score=config["parasail"]["min_aln_score"]
+    min_aln_score=config["alignment"]["min_aln_score"]
   shell: """
     (
-      samtools view -b -F 4 {input.sam:q} | \
-      samtools calmd /dev/stdin {input.ref:q} | \
+      samtools calmd {input.bam:q} {input.ref:q} | \
       samtools sort -n -O bam /dev/stdin | \
       python {workflow.basedir}/scripts/bam_utils.py best-alignment --min-as {params.min_aln_score} /dev/stdin | \
-      python {workflow.basedir}/scripts/bam_utils.py add-nh /dev/stdin | \
-      samtools sort -O bam /dev/stdin > {output:q}
+      python {workflow.basedir}/scripts/bam_utils.py add-hits /dev/stdin | \
+      samtools sort -O bam -o {output:q} /dev/stdin
     ) 2> {log:q}
   """
 
@@ -70,22 +83,21 @@ def _samtools_merge_reads_input(wildcards):
       split_reads,
       "part_{fname}.fastq.gz"))
 
-  output_dir = "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}_split"
-  return expand(os.path.join(output_dir, "part_{fname}_raw.bam"),
+  output_dir = "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}_split"
+  return expand(os.path.join(output_dir, "part_{fname}.sorted.bam"),
     fname=fnames,
     allow_missing=True)
 
 
 rule samtools_merge_split_reads:
   input: bams=_samtools_merge_reads_input,
-    fasta=REF_FASTA
-  output: bam="results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.bam",
-          bai="results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.bam.bai"
+         fasta=REF_FASTA
+  output: bam="results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}.sorted.bam"
   conda: "qutrna2"
-  log: "logs/samtools/merge_split_reads/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~{ORIENT}/{BC}.sorted.bam"
+  log: "logs/samtools/merge_split_reads/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~{ALIGNMENT}/{BC}.log"
   shell: """
     (
       samtools merge - {input.bams:q} | \
-      samtools sort -o {output.bam:q} /dev/stdin && samtools index {output.bam:q}
+      samtools sort -o {output.bam:q} /dev/stdin
     ) 2> {log:q}
 """

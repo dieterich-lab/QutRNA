@@ -4,6 +4,7 @@ import re
 from snakemake.io import expand
 
 
+
 global DEFAULT_SCORE
 global FILTERS_APPLIED
 global MODS
@@ -45,7 +46,7 @@ rule jacusa2_run:
   output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/JACUSA2.out"
   conda: "qutrna2"
   log: "logs/jacusa2/run/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.log"
-  benchmark: "benchmarks/jacusa2/run/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.txt"
+  benchmark: repeat("benchmarks/jacusa2/run/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.txt", config.get("_benchmark_repeats", 1))
   params: jar=config["jacusa2"]["jar"],
           opts=config["jacusa2"]["opts"],
           min_cov=config["jacusa2"]["min_cov"],
@@ -69,7 +70,7 @@ rule jacusa2_run:
 # Process JACUSA2 scores
 ################################################################################
 def _jacusa_add_scores():
-  plots = sorted(config["heatmap_plots"], key = lambda item: item["id"])
+  plots = sorted(config["plots"].get("heatmap", []), key = lambda item: item["id"])
   scores = sorted({plot.get("score", DEFAULT_SCORE) for plot in plots})
 
   return "-s " + ",".join(scores)
@@ -79,7 +80,7 @@ rule jacusa2_add_scores:
   output: "results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_seq.tsv"
   conda: "qutrna2"
   log: "logs/jacusa2/add_scores/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.log"
-  benchmark: "benchmarks/jacusa2/add_scores/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.txt"
+  benchmark: repeat("benchmarks/jacusa2/add_scores/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.txt", config.get("_benchmark_repeats", 1))
   params: stats=_jacusa_add_scores()
   shell: """
     Rscript {workflow.basedir:q}/scripts/add_scores.R {params.stats} -o {output:q} {input.jacusa2:q} 2> {log:q}
@@ -87,6 +88,7 @@ rule jacusa2_add_scores:
 
 
 if "mods" in pep.config["qutrna2"]:
+
   rule jacusa2_add_mods:
     input: scores="results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_{coord_type}.tsv",
            mods=MODS
@@ -95,7 +97,7 @@ if "mods" in pep.config["qutrna2"]:
     params:
       coords=lambda wildcards: "--sprinzl" if wildcards.coord_type == "sprinzl" else ""
     log: "logs/jacusa2/add_seq_mods/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/{coord_type}.log"
-    benchmark: "benchmarks/jacusa2/add_mods/cond1~{COND1}/cond2~{COND2}/{coord_type}/bam~{bam_type}.txt"
+    benchmark: repeat("benchmarks/jacusa2/add_mods/cond1~{COND1}/cond2~{COND2}/{coord_type}/bam~{bam_type}.txt", config.get("_benchmark_repeats", 1))
     shell: """(
       Rscript {workflow.basedir:q}/scripts/add_mods.R \
           {params.coords} \
@@ -122,7 +124,7 @@ def _input_jacusa2_max_scores(_):
 
 
 def _params_config_scores():
-  scores = [plot["score"] for plot in config["heatmap_plots"]]
+  scores = [plot.get("score", DEFAULT_SCORE) for plot in config["plots"].get("heatmap", [])]
 
   return sorted(list(set([score.split("::")[0] for score in scores])))
 

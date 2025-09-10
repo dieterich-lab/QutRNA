@@ -9,7 +9,7 @@ import pandas as pd
 def process(fnames, data, output):
   dfs = []
   for (read_type, condition, sample, subsample, base_call), fname in zip(data, fnames):
-    df = pd.read_csv(fname, sep="\t")
+    df = pd.read_csv(fname, sep="\t", dtype=str)
 
     df["read_type"] = read_type
     df["sample"] = sample
@@ -20,7 +20,7 @@ def process(fnames, data, output):
 
     dfs.append(df)
   df = pd.concat(dfs, ignore_index=True)
-  df.to_csv(output, sep="\t", index=False)
+  df.to_csv(output, sep="\t", index=False, quoting=False)
 
 
 if __name__ == '__main__':

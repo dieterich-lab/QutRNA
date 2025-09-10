@@ -1,14 +1,46 @@
 import pandas as pd
 
-global SPRINZL_MODE
-global SEQ_TO_SPRINZL_INIT
-global SEQ_TO_SPRINZL_FINAL
+global create_include
 global REF_FILTERED_TRNAS_FASTA
-global SPRINZL
 
 
-if SPRINZL_MODE == "cm":
-  global CM
+########################################################################################################################
+# Coordinate system: seq(uence) or sprinzl
+
+# final sequence to sprinzl mapping
+SEQ_TO_SPRINZL_FINAL = "results/ss/seq_to_sprinzl_filtered.tsv"
+
+# consensus annotation
+SPRINZL_LABELS = "data/sprinzl_labels.txt"
+create_include("sprinzl_labels",
+  pep.config["qutrna2"]["sprinzl"]["labels"],
+  SPRINZL_LABELS,
+  config["include"].get("sprinzl_labels","copy"))
+
+# in case of sprinzl, handle if model or precalculated mapping is to be used
+if pep.config["qutrna2"]["coords"] == "sprinzl" and "cm" in pep.config["qutrna2"]["sprinzl"]:
+
+  # How mapping to sprinzl coordinates are calculate, by alignment or from existing mapping
+  # cm -> covarince model -> calculate secondary structure alignment and create mapping
+  # seq_to_sprinzl -> use exisiting mapping
+  if "cm" in pep.config["qutrna2"]["sprinzl"]:
+    SPRINZL_MODE = "cm"
+    # covariance model destination
+    CM = "data/cm.stk"
+    create_include("cm",
+      pep.config["qutrna2"]["sprinzl"]["cm"],
+      CM,
+      config["include"]["cm"])
+    SEQ_TO_SPRINZL_INIT = "results/ss/seq_to_sprinzl.tsv"
+  elif "seq_to_sprinzl" in pep.config["qutrna2"]["sprinzl"]:
+    SPRINZL_MODE = "seq2sprinzl"
+    SEQ_TO_SPRINZL_INIT = "data/seq_to_sprinzl.tsv"
+    create_include("seq_to_sprinzl",
+      pep.config["qutrna2"]["sprinzl"]["seq_to_sprinzl"],
+      SEQ_TO_SPRINZL_INIT,
+      config["include"].get("seq_to_sprinzl", "copy"))
+  else:
+    raise Exception("Must provide either 'cm' or 'seq_to_sprinzl' in pep!")
 
   rule cmalign_run:
     input: cm=CM,
@@ -30,7 +62,7 @@ if SPRINZL_MODE == "cm":
 
   rule ss_annotate_consensus:
     input: stk="results/cmalign/align.stk",
-           sprinzl=SPRINZL
+           sprinzl=SPRINZL_LABELS
     output: "results/ss/consensus_annotated.tsv"
     conda: "qutrna2"
     log: "logs/ss/annotate_consensus.log"
@@ -42,32 +74,41 @@ if SPRINZL_MODE == "cm":
         2> {log:q}
     """
 
+
   rule ss_map_seq_to_sprinzl:
     input: align="results/cmalign/align.stk",
            consensus_annotated="results/ss/consensus_annotated.tsv"
     output: SEQ_TO_SPRINZL_INIT
     conda: "qutrna2"
     log: "logs/ss/map_seq_to_sprinzl.log"
+    params: map_introns=lambda wildcards: "--map-introns" if pep.config["qutrna2"]["sprinzl"].get("map_introns", False) else ""
     shell: """
       python {workflow.basedir}/scripts/sprinzl_utils.py map-seq-sprinzl \
+        {params.map_introns} \
         --output {output:q} \
         --cons-ss-annotation {input.consensus_annotated:q} \
         {input.align:q} \
         2> {log:q}
     """
-
 else:
-  _SS_SEQ_TO_SPRINZL = "data/seq_to_sprinzl.tsv"
+  SEQ_TO_SPRINZL_INIT = "data/seq_to_sprinzl.tsv"
+
+  create_include("seq_to_sprinzl",
+    pep.config["qutrna2"]["sprinzl"]["seq_to_sprinzl"],
+    SEQ_TO_SPRINZL_INIT,
+    config["include"].get("seq_to_sprinzl", "copy"))
 
 ########################################################################################################################
+# Filter sprinzl mapping and apply
 
 rule ss_seq_to_sprinzl_final:
   input: SEQ_TO_SPRINZL_INIT
   output: SEQ_TO_SPRINZL_FINAL
   run:
-    df = pd.read_csv(input[0],sep="\t")
+    df = pd.read_csv(input[0], sep="\t")
     df = df[df["sprinzl"] != "-"]
-    df.to_csv(output[0],sep="\t",index=False,quoting=False)
+    df.to_csv(str(output[0]), sep="\t", index=False, quoting=False)
+
 
 rule ss_transform:
   input: jacusa2="results/jacusa2/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}/scores_seq.tsv",
@@ -76,7 +117,6 @@ rule ss_transform:
   conda: "qutrna2"
   log: "logs/ss/transform/cond1~{COND1}/cond2~{COND2}/bam~{bam_type}.log"
   params: linker5=pep.config["qutrna2"]["linker5"]
-
   shell: """
     python {workflow.basedir:q}/scripts/sprinzl_utils.py transform \
         --sprinzl {input.seq_sprinzl:q} \

@@ -34,7 +34,7 @@ def open_out(output):
 
 
 @cli.command()
-@click.option("-o", "--output", type=click.Path())
+@click.option("-o", "--output", required=True, type=click.Path())
 @click.argument("FASTA", type=click.Path(exists=True))
 def extract_seqids(fasta, output):
     """Extract tRNAs from fasta"""
@@ -42,7 +42,7 @@ def extract_seqids(fasta, output):
     records = read_records(fasta)
     with open_out(output) as fout:
         for record in records:
-            fout.write(record)
+            fout.write(f"{record}\n")
 
 
 def do_remove_linker(record, linker5, linker3):
@@ -69,10 +69,27 @@ def do_reverse(record):
 
 
 @cli.command()
+@click.option("--linker5", required=True, type=click.IntRange(min=1))
+@click.option("--linker3", required=True, type=click.IntRange(min=1))
+@click.option("-o", "--output", required=True, type=click.Path())
+@click.argument("FASTA", type=click.Path())
+def reverse(fasta, linker5, linker3, output):
+    """Transform fasta"""
+
+    records = read_records(fasta)
+    with open_out(output) as fout:
+        for record in records.values():
+            record.id = f"{record.id}_rev"
+            trna_seq = record.seq[linker5:-linker3]
+            seq = str(record.seq)
+            record.seq = seq[0:linker5] + trna_seq[::-1] + seq[-linker3:]
+            SeqIO.write(record, fout, "fasta")
+
+@cli.command()
 @click.option("--remove-linker5", type=int)
 @click.option("--remove-linker3", type=int)
 @click.option("-c", "--base-change", type = click.Choice(BaseChange, case_sensitive=False), help="Base change: U2T or T2U.")
-@click.option("-i", "--ignore", type=str, multiple=True)
+@click.option("-i", "--ignore", type=str)
 @click.option("-r", "--reverse", is_flag=True, default=False, help="Reverse sequence.")
 @click.option("-o", "--output", required=True, type=click.Path())
 @click.argument("FASTA", type=click.Path())
@@ -110,11 +127,8 @@ def ignore_trnas(records, ignore):
 
     filtered = dict(records)
 
-    if len(ignore) == 1 and ignore[0].startswith("/"):
-        pattern = re.compile(rf"{ignore[0]}")
-        trnas = [trna for trna in filtered if pattern.search(trna)]
-    else:
-        trnas = list(ignore)
+    pattern = re.compile(rf"{ignore}")
+    trnas = [trna for trna in filtered if pattern.search(trna)]
 
     # remove trnas such as defined by ignore
     for trna in trnas:
@@ -128,6 +142,7 @@ def ignore_trnas(records, ignore):
 
     return filtered
 
+
 @cli.command()
 @click.option("-o", "--output", type=click.Path())
 @click.argument("FASTA", type=click.Path(exists=True))
@@ -137,13 +152,15 @@ def infer_annotation(fasta, output):
     trnas = read_records(fasta)
 
     df = pd.DataFrame.from_dict({"trna": trnas.keys()})
-    df["is_mt"] = df["trna"].str.startswith("MT")
-    df["is_nuclear"] = ~df["is_mt"]
+
+    df["type"] = "unknown"
+    is_mt = df["trna"].str.startswith("MT")
+    df["type"][is_mt] = "mt"
+    df["type"][~is_mt] = "nuclear"
+
     info = df["trna"].str.extract(r'.*tRNA-(?P<amino_acid>[^-]+)-(?P<anti_codon>[A-Z]+)')
     df = pd.concat([df, info], axis=1)
-    df["isotype"] = df["amino_acid"]
-    df["isoacceptor"] = df["amino_acid"].str.cat(df["anti_codon"], sep="-")
-    # TODO df["isodecoder"]
+    df["seq"] = [str(record.seq).upper().replace("T", "U") for record in trnas.values()]
 
     df.to_csv(output, index=False, sep="\t")
 

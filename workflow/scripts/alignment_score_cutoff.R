@@ -6,12 +6,12 @@ require(ggplot2)
 require(dplyr)
 
 option_list <- list(
-  make_option(c("-f", "--forward"),
+  make_option(c("-e", "--real"),
               type = "character",
-              help = "Scores of reads mapping to forward"),
-  make_option(c("-r", "--reverse"),
+              help = "Scores of real reads mapping"),
+  make_option(c("-a", "--random"),
               type = "character",
-              help = "Scores of reads mapping to reverse"),
+              help = "Scores of reads mapping to random"),
   #make_option(c("-P", "--prc_plot"),
   #            type = "character",
   #            help = "PRC output"),
@@ -36,10 +36,10 @@ opts <- parse_args(
   positional_arguments = TRUE
 )
 
-stopifnot(!is.null(opts$options$forward))
-stopifnot(!is.null(opts$options$reverse))
-stopifnot(file.exists(opts$options$forward))
-stopifnot(file.exists(opts$options$reverse))
+stopifnot(!is.null(opts$options$real))
+stopifnot(!is.null(opts$options$random))
+stopifnot(file.exists(opts$options$real))
+stopifnot(file.exists(opts$options$random))
 stopifnot(opts$options$score_plot != "")
 #stopifnot(opts$options$prc_plot != "")
 stopifnot(opts$options$cutoff != "")
@@ -56,8 +56,8 @@ read_score <- function(fname, category) {
 }
 
 scores <- dplyr::bind_rows(
-  read_score(opts$options$forward, "POS"),
-  read_score(opts$options$reverse, "NEG")) |>
+  read_score(opts$options$real, "POS"),
+  read_score(opts$options$random, "NEG")) |>
   mutate(category = as.factor(category) |> relevel("POS"))
 
 curve <- scores |>

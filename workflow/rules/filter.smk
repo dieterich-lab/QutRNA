@@ -3,9 +3,12 @@ from snakemake.io import temp
 
 global READS
 global REF_FASTA
+global TRNAS_SELECTED
+
 
 # Container for applied filters (filter name).
 FILTERS_APPLIED = []
+
 
 class Filter(ABC):
   """
@@ -15,8 +18,9 @@ class Filter(ABC):
   # container for chain of BAM output files.
   OUTPUT = []
 
-  def __init__(self, filter_name):
+  def __init__(self, filter_name, use_temp=True):
     self.filter_name = filter_name
+    self.use_temp = use_temp
     # add more dependencies if necessary
     self.input = {}
     # add more output if necessary
@@ -55,7 +59,10 @@ class Filter(ABC):
 
       # add new output
       self.OUTPUT.append(self.output["bam"])
-      self.output["bam"] = temp(self.output["bam"])
+      if self.use_temp:
+        self.output["bam"] = temp(self.output["bam"])
+      else:
+        self.output["bam"] = self.output["bam"]
 
       FILTERS_APPLIED.append(self.filter_name)
 
@@ -72,7 +79,7 @@ class Filter(ABC):
 
 class FilterRandomAlignment(Filter):
   def __init__(self):
-    super().__init__("random_alignment")
+    super().__init__("random_alignment", use_temp=False)
 
   def _process(self):
     self.input["cutoff"] = "results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}_stats/cutoff.txt"
@@ -80,6 +87,18 @@ class FilterRandomAlignment(Filter):
       f"python {workflow.basedir}/scripts/bam_utils.py filter --min-as `sed -n '2p' {{input.cutoff:q}}` --output {{output.bam:q}} {{input.bam:q}}")
 
     return True
+
+
+class FilterIgnoreTrnas(Filter):
+  def __init__(self):
+    super().__init__("ignore_trnas")
+
+  def _process(self):
+    self.input["trnas_selected"] = TRNAS_SELECTED
+    self.cmds.append("samtools view -b -o {output:q} {input.bam:q} `cat {input.trnas_selected:q} | tr '\n' ' '`")
+
+    return True
+
 
 class FilterSamtools(Filter):
   def __init__(self):
@@ -104,16 +123,19 @@ class FilterSamtools(Filter):
 
     return self.cmds
 
+
 class FilterTrimCigar(Filter):
   def __init__(self):
     super().__init__("trim_cigar")
 
   def _process(self):
-    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt"
+    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_filter.txt"
     self.cmds.append(
-      f"python {workflow.basedir}/scripts/bam_utils.py filter --stats {{output.stats:q}} --trim-cigar --output {{output.bam:q}} {{input.bam:q}}")
+      f"python {workflow.basedir}/scripts/bam_utils.py filter --stats {{output.stats:q}} --trim-cigar --output '-' {{input.bam:q}}")
+    self.cmds.append("samtools sort -o {output.bam:q} /dev/stdin")
 
     return True
+
 
 class FilterReadLength(Filter):
   def __init__(self):
@@ -128,7 +150,7 @@ class FilterReadLength(Filter):
       return False
 
     self.params["opts"] = opts
-    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt"
+    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_filter.txt"
     self.cmds.append(
       f"python {workflow.basedir}/scripts/bam_utils.py filter --stats {{output.stats:q}} {{params.opts}} --output {{output.bam:q}} {{input.bam:q}}")
 
@@ -148,7 +170,7 @@ class FilterAlignmentLength(Filter):
       return False
 
     self.params["opts"] = opts
-    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt"
+    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_filter.txt"
     self.cmds.append(
       f"python {workflow.basedir}/scripts/bam_utils.py filter --stats {{output.stats:q}} {{params.opts}} --output {{output.bam:q}} {{input.bam:q}}")
 
@@ -200,7 +222,7 @@ class FilterAdapterOverlap(Filter):
       return False
 
     self.params["opts"] = opts
-    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_stats/{self.filter_name}.txt.gzip"
+    self.output["stats"] = f"results/bam/filtered-{self.filter_name}/sample~{{SAMPLE}}/subsample~{{SUBSAMPLE}}/{{BC}}_filter.txt.gzip"
     self.cmds.append(
       f"python {workflow.basedir}/scripts/bam_utils.py adapter-overlap --fasta {{input.ref_fasta}} {{params.opts}} --stats {{output.stats:q}} --output {{output.bam:q}} {{input.bam:q}}")
 
@@ -212,7 +234,7 @@ class FilterAdapterOverlap(Filter):
 if READS == "bam":
   Filter.OUTPUT.append("data/bam/sample~{SAMPLE}/subsample~{SUBSAMPLE}/{BC}.sorted.bam")
 elif READS == "fastq":
-  Filter.OUTPUT.append("results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/orient~fwd/{BC}.sorted.bam")
+  Filter.OUTPUT.append("results/bam/mapped/sample~{SAMPLE}/subsample~{SUBSAMPLE}/alignment~real/{BC}.sorted.bam")
 
 
 # apply filters as defined in the config

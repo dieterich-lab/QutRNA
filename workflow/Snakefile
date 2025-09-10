@@ -1,62 +1,39 @@
-# FIX FROM
-# https://python-jsonschema.readthedocs.io/en/stable/faq/#why-doesn-t-my-schema-s-default-property-set-the-default-on-my-instance
-from jsonschema import Draft202012Validator, validators
 import os
-
-
-def extend_with_default(validator_class):
-  validate_properties = validator_class.VALIDATORS["properties"]
-
-  def set_defaults(validator, properties, instance, schema):
-    for property, subschema in properties.items():
-      if "default" in subschema:
-        instance.setdefault(property,subschema["default"])
-
-    for error in validate_properties(
-            validator,properties,instance,schema,
-    ):
-      yield error
-
-  return validators.extend(
-    validator_class,{"properties": set_defaults},
-  )
-DefaultValidatingValidator = extend_with_default(Draft202012Validator)
-
-import yaml
 from snakemake.io import expand
 
-VERSION = "2.0.0-DEV-10"
 
-# validate schemas
-with open(workflow.basedir + "/schemas/config.yaml") as stream:
-  config_schema = yaml.safe_load(stream)
-  DefaultValidatingValidator(config_schema).validate(config)
+VERSION = "2.0.0-DEV-12"
+
 pepfile: config["pepfile"]
 pepschema: "schemas/pep.yaml"
-
-# manage snakemake includes
-include: "rules/common.smk"
-include: "rules/filter.smk"
-include: "rules/samtools.smk"
-if "alignment" in config:
-  include: "rules/parasail.smk"
-include: "rules/jacusa2.smk"
-global COORDS
-if COORDS == "sprinzl":
-  include: "rules/sec_structure.smk"
-include: "rules/plot.smk"
-include: "rules/info.smk"
-
+include: "rules/fix.smk"
 
 global FILTERS_APPLIED
 global TBL
 global READS
 global REF_FASTA
-global REF_FASTA_REVERSED
+global REF_FASTA_RANDOM
 global CM
 global SPRINZL_MODE
-global SPRINZL
+global SPRINZL_LABELS
 global SEQ_TO_SPRINZL_FINAL
+
+
+# manage snakemake includes
+include: "rules/common.smk"
+include: "rules/trna.smk"
+include: "rules/filter.smk"
+include: "rules/features.smk"
+include: "rules/samtools.smk"
+if READS == "fastq" and "alignment" in config:
+  include: "rules/parasail.smk"
+include: "rules/jacusa2.smk"
+if pep.config["qutrna2"]["coords"] == "sprinzl":
+  include: "rules/sec_structure.smk"
+include: "rules/plot.smk"
+include: "rules/info.smk"
+
+
 
 ########################################################################################################################
 
@@ -85,8 +62,8 @@ def target_trna_plots():
     cond1 = contrast["cond1"]
     cond2 = contrast["cond2"]
 
-    dname =  "results/plots/cond1~{cond1}/cond2~{cond2}/{plot_id}/bam~{bam_type}"
-    for plot in config["heatmap_plots"]:
+    dname =  "results/plots/scores/cond1~{cond1}/cond2~{cond2}/{plot_id}/bam~{bam_type}"
+    for plot in config["plots"]["heatmap"]:
       targets.extend(
         expand(dname,
           cond1=cond1, cond2=cond2,
@@ -120,9 +97,9 @@ rule all:
 #  if COORDS == "sprinzl":
 #    if SPRINZL_MODE == "cm":
 #      targets.append(CM)
-#    targets.append(SPRINZL)
+#    targets.append(SPRINZL_LABELS)
 #  if READS == "fastq":
-#    targets.append(REF_FASTA_REVERSED)
+#    targets.append(REF_FASTA_RANDOM)
 #    for row in TBL.itertuples():
 #      targets.extend(
 #        expand("data/fastq/sample~{sample}/subsample~{subsample}/{bc}.fastq.gz",
@@ -161,13 +138,13 @@ if READS == "fastq":
 
 ########################################################################################################################
 
-if COORDS == "sprinzl":
+if pep.config["qutrna2"]["coords"] == "sprinzl":
   def target_sprinzl():
     return [
       SEQ_TO_SPRINZL_FINAL,]
 
-rule sprinzl:
-  input: target_sprinzl() + target_info()
+  rule sprinzl:
+    input: target_sprinzl() + target_info()
 
 ########################################################################################################################
 
@@ -181,13 +158,16 @@ def target_read_feature_plots():
 
   # custom read feature specific plots
   for feature in ["read_length", "record_count"]:
-    for plot in config.get(f"{feature}_plots", []):
-      targets.append(f"results/plots/{feature}/custom/{plot.id}.pdf")
+    for plot in config["plots"].get(feature, []):
+      targets.append(f"results/plots/{feature}/custom/{plot['id']}.pdf")
 
   if READS == "fastq":
     targets.append("results/plots/alignment/threshold_summary.pdf")
+    for plot in config["plots"].get("threshold_summary", []):
+      targets.append(f"results/plots/alignment/threshold_summary/custom/{plot['id']}.pdf")
 
   return targets
+
 
 rule read_feature_plots:
   input: target_read_feature_plots() + target_info()

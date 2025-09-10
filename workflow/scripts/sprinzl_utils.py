@@ -1,6 +1,8 @@
 import click
 import pandas as pd
-from Bio import AlignIO
+from Bio import AlignIO, SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 
 @click.group()
@@ -8,7 +10,6 @@ def cli():
     pass
 
 
-# TODO add
 @cli.command()
 @click.option("-o", "--output", required=True, type=click.Path())
 @click.option("-s", "--sprinzl", required=True, type=click.Path(exists=True))
@@ -52,13 +53,15 @@ def annotate_consensus(stk, sprinzl, output):
 
     df = pd.DataFrame(mapping.items(), columns=["cons", "sprinzl"])
     df["ss"] = list(ss_cons)
-    df.to_csv(output, sep="\t", index=False, quoting=False)
+    df.to_csv(output, sep="\t", index=False)
+
 
 @cli.command()
 @click.option("--output", required=True, type=click.Path())
+@click.option("--map-introns", is_flag=True)
 @click.option("--cons-ss-annotation", required=True, type=click.Path(exists=True))
 @click.argument("STK", type=click.Path(exists=True))
-def map_seq_sprinzl(stk, cons_ss_annotation, output):
+def map_seq_sprinzl(stk, map_introns, cons_ss_annotation, output):
     """Map sequence to sprinzl coorindates"""
 
     # read cmalign
@@ -92,11 +95,14 @@ def map_seq_sprinzl(stk, cons_ss_annotation, output):
             if letter in ["A", "C", "G", "U", "T"]:
                 la_sprinzl.append(sprinzl_pos)
             elif letter in ["a", "c", "g", "u", "t"]:
-                if last_sprinzl == str(37):
-                    la_sprinzl.append("i" + str(intron_i))
-                    intron_i += 1
+                if map_introns:
+                  if last_sprinzl == str(37):
+                      la_sprinzl.append("i" + str(intron_i))
+                      intron_i += 1
+                  else:
+                      la_sprinzl.append(sprinzl_pos)
                 else:
-                    la_sprinzl.append(sprinzl_pos)
+                  la_sprinzl.append("-")
             else:
                 la_sprinzl.append("-")
         df = pd.DataFrame(
@@ -112,6 +118,33 @@ def map_seq_sprinzl(stk, cons_ss_annotation, output):
     df.to_csv(output, sep="\t", index=False, quoting=False)
 
 
+def write_fasta_records(records, fname):
+  with open(fname, "w") as fout:
+    for record in records:
+      SeqIO.write(record, fout, "fasta-2line")
+
+
+@cli.command()
+@click.option("--fasta", required=True, help="Output for FASTA")
+@click.option("--vienna", required=True, help="Output for VIENNA")
+@click.argument("stk", type=click.Path(exists=True))
+def convert(stk, fasta, vienna):
+  align = AlignIO.read(stk, "stockholm")
+  ss = str(align.column_annotations["secondary_structure"])
+  ss = ss.replace(",", ".").replace("_", ".").replace(":", "")
+
+  fasta_container = []
+  vienna_container =[]
+  for record in align:
+    fasta_container.append(
+      SeqRecord(Seq(str(record.seq).upper()), record.id, description=""))
+    vienna_container.append(
+      SeqRecord(Seq(ss), record.id, description=""))
+
+  write_fasta_records(fasta_container, fasta)
+  write_fasta_records(vienna_container, vienna)
+
+
 @cli.command()
 @click.option("--sprinzl", required=True, help="Sequence to Sprinzl.")
 @click.option("--output", required=True, help="Output FNAME")
@@ -125,8 +158,10 @@ def transform(sprinzl, output, linker5, jacusa2):
 
     i = sprinzl["id"].isin(jacusa["trna"].unique())
     sprinzl = sprinzl.loc[i, ["id", "seq_pos", "sprinzl"]]
+    sprinzl["seq_pos"] = sprinzl["seq_pos"].astype(str)
 
     jacusa["n_pos"] = jacusa["seq_position"] - linker5
+    jacusa["n_pos"] = jacusa["n_pos"].astype(str)
     jacusa = (jacusa.merge(sprinzl,
                            how="left",
                            left_on=("trna", "n_pos" ),

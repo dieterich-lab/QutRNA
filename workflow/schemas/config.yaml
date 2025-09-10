@@ -69,6 +69,10 @@ properties:
         type: integer
         description: Minimum alignment score to considert for calibration
         default: 10
+      random:
+        type: string
+        enum: ["rev_linker+trna", "rev_trna"]
+        default: "rev_linker+trna"
       method:
         type: string
         enum: ["parasail", "gpu"]
@@ -80,7 +84,7 @@ properties:
       opts:
         type: string
         description: Options for parasail
-        default: sw_trace_striped_sat -M 1 -X 1 -e 1 -o 1 -x -d -b 100000
+        default: -a sw_trace_striped_sat -M 1 -X 1 -e 1 -o 1 -x -d -b 100000
       lines:
         type: integer
         description: Number of lines to split FASTQ files.
@@ -92,6 +96,9 @@ properties:
       pre:
         type: string
         description: BASH code to execute before GPU-assisted alignment
+      bin:
+        type: string
+        default: gpu-tRNA-mapper
       opts:
         type: string
         description: Options for tRNA-gpu-mapper
@@ -129,7 +136,14 @@ properties:
             default: false
           min_aln_score:
             type: integer
-            description: Minimum alignment score to considert for calibration
+            description: Minimum alignment score to be considered for calibration
+        default: {}
+      ignore_trnas:
+        type: object
+        properties:
+          apply:
+            type: boolean
+            default: false
         default: {}
       samtools:
         type: object
@@ -167,7 +181,7 @@ properties:
           apply:
             type: boolean
             default: false
-        default: false
+        default: {}
       overlap:
         type: object
         properties:
@@ -273,11 +287,14 @@ properties:
             type: string
           group:
             type: string
-            enum: ["isoacceptor", "isodecoder", "all"]
+            enum: ["amino_acid", "anti_codon", "amnio_acid,anti_codon"]
+          score:
+            type: string
+            default: "MDI_subsampled::norm_mismatch_score_subsampled+norm_deletion_score_subsampled+norm_insertion_score_subsampled"
           harmonize_scaling:
             type: string
             default: NONE
-            pattern: ^NONE|CONTRAST|FILTER|CONTRAST_FILTER|\d+(\.\d+)?$
+            pattern: ^NONE|MAX_SCORE|CONTRASTS|OVERALL|\d+(\.\d+)?$
           trnas:
             type: array
             items:
@@ -288,9 +305,12 @@ properties:
               type: string
           opts:
             type: string
+        default: {}
         required:
           - id
           - group
+          - score
+          - harmonize_scaling
   call_filtered:
     type: boolean
     default: false
