@@ -347,7 +347,7 @@ We provide a data set to explore the pipeline. Necessary data for *S.pombe* was 
 * *S.pombe* tRNAAsp IVT and
 * *S.pombe* tRNAAsp IVT Q.
 
-Run the pipeline with: `example/run_example.sh`.
+Run the pipeline with: `example/run_examples.sh`.
 
 The output will be in `example/output`.
 
