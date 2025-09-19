@@ -19,14 +19,14 @@ git clone https://github.com/dieterich-lab/QutRNA
 
 ## Alignment
 
-Our alignment workflow employs an optimal local alignment strategy using the implementation as provided by the [parasail](https://github.com/jeffdaily/parasail/) software.
+Our alignment workflow employs an optimal local alignment strategy using the implementation provided by the [parasail](https://github.com/jeffdaily/parasail/) software.
 In summary, optimal alignments may produce drastically different tRNA read mappings and are superior to heuristic alignments.
 
-Our strategy to assess the statistical significance is rooted in a simulation-based approach, which produces random alignments.
+Our statistical significance assessment strategy is rooted in a simulation-based approach, which produces random alignments.
 Briefly, we reverse input sequences.
 Then, we compute alignments in **forward** orientation with all original reads and **reverse** orientation. We classify alignments in the **forward** orientation as true and the ones with **reverse** read orientation as false.
 
-Alignment precision is then defined by TP/(TP+FP) and alignment recall by TP/(TP+FN) according to some score threshold *t*, where TP: true positive, FP: false positive, and FN: false negative.
+Alignment precision is then defined by TP/(TP+FP), and alignment recall by TP/(TP+FN) according to some score threshold *t*, where TP is a true positive, FP is a false positive, and FN is a false negative.
 
 We calculate an optimal threshold for a given precision and filter mapped reads accordingly.
 
@@ -44,7 +44,7 @@ Currently, the pipeline requires an X86\_64 architecture. (We are working on sup
 * [parasail v2.6.2](https://github.com/jeffdaily/parasail/archive/refs/tags/v2.6.2.tar.gz)
 * (check `conda.yaml` in the repository)
 
-We provide a YAML file to create a [conda](https://docs.conda.io/en/latest/) environment with all necessary software with the exception of [parasail](https://github.com/jeffdaily/parasail/). Unfortunatelly, no package for parasail exists in conda.
+We provide a YAML file to create a [conda](https://docs.conda.io/en/latest/) environment with all necessary software except [parasail](https://github.com/jeffdaily/parasail/). Unfortunately, no package for parasail exists in conda.
 
 Create a conda environment with:
 ```console
@@ -52,7 +52,7 @@ conda env create -n qutrna -f <LOCAL-REPOSITORY>/conda.yaml
 conda activate qutrna
 ```
 
-If removing white space from final plots is desired, a working TEX environment is required. Unfortunatelly, the TEX environment available via conda is not applicable.
+If you want to remove white space from final plots, you need a working TEX environment. Unfortunately, the TEX environment available via Conda is not applicable.
 
 ### parasail
 
@@ -65,15 +65,15 @@ If you install and compile from sources and you use conda, it is imperative to c
 3. Compile and install. Replace `<DESTINATION>` with your desired path for parasail:
 
 ```console
-tar -zvpf v2.6.2.tar.gz
-cd v2.6.2
+tar -xzvpf v2.6.2.tar.gz
+cd parasail-v2.6.2
 autoreconf -fi
-configure --prefix=<DESTINATION>
+./configure --prefix=<DESTINATION>
 make
 make install
 ```
 
-Make sure, [parasail](https://github.com/jeffdaily/parasail) is installed in `$PATH`. 
+Make sure [parasail](https://github.com/jeffdaily/parasail) is installed in `$PATH`. 
 
 
 ### Snakemake workflow
@@ -85,8 +85,8 @@ The workflow is implemented with [snakemake](https://github.com/snakemake/snakem
 * and visualization in Sprinzl coordinates.
 
 The workflow can be configured with YAML files:
-* `analysis.yaml` : analysis specific config, e.g.: parameters of tools.
-* `data.yaml` : data specific config, e.g.: reference sequence, sample description.
+* `analysis.yaml` : analysis-specific config, e.g., parameters of tools.
+* `data.yaml` : data-specific config, e.g., reference sequence, sample description.
 
 
 #### Config: analysis
@@ -115,7 +115,7 @@ parasail:
   lines: 0
 [...]
 ```
-`opts` defines parasail specific command line options (check [parasail](https://github.com/jeffdaily/parasail) for details).
+`opts` defines parasail's specific command-line options (check [parasail](https://github.com/jeffdaily/parasail) for details).
 
 `batch_size` defines the batch size of reads, the parameter influences main memory requirements (check [parasail](https://github.com/jeffdaily/parasail) for details).
 `threads` sets the number of parallel threads to use. Adjust to your local computing machine.
@@ -126,7 +126,7 @@ Make sure that the number is divisible by 4! If splitting input is desired, choo
 
 ##### JACUSA2
 
-[JACUSA2](https://github.com/dieterich-lab/JACUSA2) is used to detect RNA modifications by means of scoring mismatches and INDELs.
+[JACUSA2](https://github.com/dieterich-lab/JACUSA2) is used to detect RNA modifications by scoring mismatches and INDELs.
 
 The following default values are defined for JACUSA2 and can be overwritten in a custom `analysis.yaml`:
 
@@ -197,17 +197,17 @@ Multiple plots with unique `<PLOT-ID>` fields and different options are supporte
 ##### Crop output
 
 The final heatmap plot will be surrounded by white space that can not be removed by adjusting parameters in ggplot.
-Although, it is possible to use `pdfcrop.pl` to remove the white space, a working TEX environment is required.
+Although it is possible to use `pdfcrop.pl` to remove the white space, a working TEX environment is required.
 The script is included in the conda environment of QutRNA but unfortunatelly the requirements cannot be satisfied within conda.
-It is beyond this introduction, to go in to details how to setup up TEX. Please check your OS or distribution how to setup TEX.
+It is beyond this introduction to discuss in detail how to set up TEX. Please check your OS or distribution for instructions.
 
 If you manage to setup TEX, add `--crop` to plot options to remove white space from final heatmap plots.
 
 #### Config: data
 
-Every analysis requries a `data.yaml` where details about the underlying data are defined.
+Every analysis requires a `data.yaml` where details about the underlying data are defined.
 
-In the following an extensive example of `data.yaml` with descriptions is presented:
+In the following, an extensive example of `data.yaml` with descriptions is presented:
 
 ```yaml
 pep_version: 2.0.0                  # [Required] by Snakemake
@@ -230,7 +230,7 @@ qutrna:
     file: <PATH-TO-MODS>            # (Optional) Path to RNA modifications
     abbrev: <PATH-TO-ABBREV>        # (Optional) Path to RNA modification abbreviations
   linker5: <INTEGER>                # [Required] length of 5' linker in nt
-  linker3: <INTEGER>                # [Required] lentgh of 3' linker in nt
+  linker3: <INTEGER>                # [Required] length of 3' linker in nt
   remove_trnas:
     [seq1, ]                        # (Optional) Sequence IDs to ignore for secondary structure alignment and visualization
                                     #            However, those Sequence IDs will be used for the alignment.
@@ -240,7 +240,7 @@ qutrna:
       cond2: <CONDITION2>           # must match to condition in sample_table.tsv
 ```
 
-##### Coordinates system
+##### Coordinate system
 
 QutRNA supports sequence-specific, and Sprinzl coordinates for the visualization of RNA modifications.
 The sequence-specific coordinate system does not require additional files. Setting `coords: seq` in a `data.yaml` file will choose raw sequence coordinates.
@@ -252,7 +252,7 @@ For mitochondrial tRNAs, we provide a custom sequence to Sprinzl mapping [mt-tRN
 
 #### Sample table
 
-Sample description `sample_table.tsv` must be TAB-separated file and contain the following columns:
+Sample description `sample_table.tsv` must be a TAB-separated file and contain the following columns:
 
 
 | condition | sample_name | subsample_name | base_calling | fastq\|bam |
@@ -261,9 +261,9 @@ Sample description `sample_table.tsv` must be TAB-separated file and contain the
 
 `condition`: Name of the respective condition. Will be used in `data.yaml` to define contrasts.
 
-`sample_name`: Name of the sample. A sample can consist of muliple FASTQ or BAM files. Samples with the same `sample_name` will be merged before RNA modification detection. 
+`sample_name`: Name of the sample. A sample can consist of multiple FASTQ or BAM files. Samples with the same `sample_name` will be merged before RNA modification detection. 
 
-`subsample_name`: Name of the subsample (see above). A sample can consist of multipe subsamples, e.g.: tech. replicates.
+`subsample_name`: Name of the subsample (see above). A sample can consist of multiple subsamples, e.g., tech. replicates.
 
 `base_calling`: Metainformation describing base calling for the respective row.
                 Possible values are: 'pass', 'fail', 'merged' or 'unknown'.
@@ -293,7 +293,7 @@ Replace `<QUTRNA>` with the directory where you cloned the repository, add paths
 snakemake -c 1 -f <QUTRNA>/workflow/Snakefile --config pepfile=data.yaml --configfile=analysis.yaml
 ```
 
-In case, you are only interested in the parasail alignment, add the intermediate target `alignment`:
+In case you are only interested in the parasail alignment, add the intermediate target `alignment`:
 
 ```console
 snakemake -c 1 -f <QUTRNA>/workflow/Snakefile --config pepfile=data.yaml --configfile=analysis.yaml alignment
@@ -325,7 +325,7 @@ Optional output:
 
 * `<output_dir>/resutls/jacusa2/<cond1>/<cond2>/scores_mods.tsv`: added known RNA modifications.
 * `<output_dir>/resutls/jacusa2/<cond1>/<cond2>/scores_sprinzl.tsv`: added Sprinzl coordinates
-* `<output_dir>/resutls/jacusa2/<cond1>/<cond2>/scores_sprinzl-mods.tsv`: added known RNA modifications and Sprinzl coordindates (Annotation of RNA modifications might require Sprinzl coordinates).
+* `<output_dir>/results/jacusa2/<cond1>/<cond2>/scores_sprinzl-mods.tsv`: added known RNA modifications and Sprinzl coordinates (Annotation of RNA modifications might require Sprinzl coordinates).
 
 ##### Sprinzl coordinates
 
@@ -334,7 +334,7 @@ Secondary structure alignment and coordinate mapping related output:
 * `<output_dir>/results/results/cmalign/align.stk`: raw cmalign output.
 * `<output_dir>/results/ss_consensus_to_sprinzl.tsv`: consensus secondary structure alignment.
 * `<output_dir>/results/seq_to_sprinzl.tsv`: Mapping from sequence to Sprinzl coordinates.
-* `<output_dir>/results/seq_to_sprinzl_filtered.tsv`: Same as above but gaps have been removed.
+* `<output_dir>/results/seq_to_sprinzl_filtered.tsv`: Same as above, but gaps have been removed.
 
 ##### Heatmaps plots
 
